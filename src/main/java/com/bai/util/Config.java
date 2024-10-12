@@ -145,6 +145,11 @@ public class Config {
 
     private boolean isGUI;
 
+    // disable stack passing optimization.
+    private boolean noOpt;
+    // disable model for non-import function.
+    private boolean noModel;
+
     private boolean preserveCalleeSavedReg;
 
     // for tactic tuning, see:
@@ -370,6 +375,22 @@ public class Config {
      */
     public boolean getPreserveCalleeSavedReg() {
         return preserveCalleeSavedReg;
+    }
+
+    public void setNoOpt(boolean noOpt) {
+        this.noOpt = noOpt;
+    }
+
+    public boolean getNoOpt() {
+        return noOpt;
+    }
+
+    public void setNoModel(boolean noModel) {
+        this.noModel = noModel;
+    }
+
+    public boolean getNoModel() {
+        return noModel;
     }
 
     @Override

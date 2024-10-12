@@ -10,7 +10,7 @@ dist/
 .idea/
 ghidra_test/
 *.sh
-gradle.properties
 .editorconfig
 /src/integration/resources/binaries
 /out/
+/pre_analysis/*.ohnapi
