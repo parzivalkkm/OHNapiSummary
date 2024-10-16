@@ -33,13 +33,19 @@ public class OHNapiSummary extends BinAbsInspector {
         List<Function> napi_registers = this.getGlobalFunctions("RegisterEntryModule");
         if (napi_registers.size() != 1) {
             this.println("[ERROR] cannot find unique function RegisterEntryModule");
-            if (napi_registers.size() == 0) {
+            if (napi_registers.isEmpty()) {
                 this.println("[ERROR] skip function RegisterEntryModule");
             }
         }
         Function f = napi_registers.get(0);
 
         System.out.println("Found "+napi_registers.size()+" RegisterEntryModule functions.");
+
+        // output some information about this function、
+        println("Function name: "+f.getName());
+        println("Function address: "+f.getEntryPoint());
+        println("Function signature: "+f.getSignature());
+        println("Function comment: "+f.getComment());
 
 
         long duration = System.currentTimeMillis() - start;
