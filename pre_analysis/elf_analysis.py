@@ -1,7 +1,6 @@
 import logging
 from io import BytesIO
 
-
 from elftools.common.exceptions import ELFError, ELFParseError
 from elftools.elf.elffile import ELFFile
 
@@ -31,23 +30,21 @@ def get_elf_import_export(stream, in_memory=True):
         logger.warning(repr(e))
         return None, None
 
-
     if dyn is None:
         return None, None
     it = dyn.iter_symbols()
     next(it)
     for sym in it:
         # skip index 0
-        if sym['st_shndx'] == 'SHN_UNDEF': # import
+        if sym['st_shndx'] == 'SHN_UNDEF':  # import
             import_names.append(sym.name)
-        else: # export
+        else:  # export
             export_names.append(sym.name)
     return import_names, export_names
 
+
 def so_analysis(stream):
     imp, exp = get_elf_import_export(stream, in_memory=True)
-    java_syms = None
-    jni_syms = None
-    if exp != None:
+    if exp is not None:
         registers = [i for i in exp if i.startswith('Register') and i.endswith('Module')]
     return registers, imp, exp

@@ -34,7 +34,7 @@ def pre_analysis(hap_file_path, output_dir):
                 registers, imp, exp = so_analysis(stream)
                 if len(registers) > 0:
                     so_stat[so_file] = registers
-                    print(f"Registers: {registers}")
+    print(f"so_stat: {so_stat}")
 
 def main():
     hap_file_path = "D:\\OpenHarmony\\NativeDemo4\\entry\\build\\default\\outputs\\default\\entry-default-unsigned.hap"
