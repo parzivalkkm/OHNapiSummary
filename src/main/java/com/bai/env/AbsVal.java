@@ -25,7 +25,7 @@ public class AbsVal {
 
     /**
      * @hidden
-     * @deprecated Redundant method, to be removed
+     * deprecated Redundant method, to be removed
      * Get a pointer AbsVal which points to the beginning of region.
      * @param region Accepts only Global, Local, Heap region
      * @return AbsVal
@@ -36,7 +36,7 @@ public class AbsVal {
 
     /**
      * @hidden
-     * @deprecated Redundant method, to be removed
+     * deprecated Redundant method, to be removed
      * Get a pointer AbsVal which points to the region with offset.
      * @param region Accepts only Global, Local, Heap region
      * @param offset offset to the beginning off region.
@@ -113,7 +113,7 @@ public class AbsVal {
 
     /**
      * @hidden
-     * @deprecated Method with ambiguous semantics, to be changed
+     * deprecated Method with ambiguous semantics, to be changed
      */
     public boolean isZero() {
         if (bigVal != null) {

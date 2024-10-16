@@ -40,7 +40,7 @@ public class Reg extends RegionBase {
 
     /**
      * @hidden
-     * @deprecated Improper method design, to be changed.
+     * deprecated Improper method design, to be changed.
      */
     public static ALoc getALoc(String registerName) {
         return ALoc.getALoc(Reg.getInstance(),

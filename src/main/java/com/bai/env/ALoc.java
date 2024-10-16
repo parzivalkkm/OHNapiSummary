@@ -112,7 +112,7 @@ public class ALoc implements Comparable<ALoc> {
 
     /**
      * @hidden
-     * @deprecated Ugly method, to be changed 
+     * deprecated Ugly method, to be changed 
      */
     public static List<ALoc> getStackALocs(Varnode varnode, AbsEnv absEnv) {
         List<ALoc> res = new ArrayList<>();

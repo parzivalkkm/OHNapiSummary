@@ -97,7 +97,7 @@ public class Context {
 
     /**
      * @hidden
-     * @deprecated Not recommended to use. To be removed
+     * deprecated Not recommended to use. To be removed
      */
     public Function[] getFuncs() {
         return funcs;
@@ -390,7 +390,7 @@ public class Context {
 
     /**
      * @hidden
-     * @deprecated Improper method for Context class, to be changed
+     * deprecated Improper method for Context class, to be changed
      */
     public static List<Context> getContext(Function function) {
         List<Context> res = new ArrayList<>();

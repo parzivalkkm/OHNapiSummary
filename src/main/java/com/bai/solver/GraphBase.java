@@ -141,7 +141,7 @@ public abstract class GraphBase<T> {
 
     /**
      * @hidden
-     * @deprecated Weird method, to be removed
+     * deprecated Weird method, to be removed
      * Reset predecessor relationship of a node
      * @param node The node to be processed
      */
@@ -153,7 +153,7 @@ public abstract class GraphBase<T> {
 
     /**
      * @hidden
-     * @deprecated Weird method, to be removed
+     * deprecated Weird method, to be removed
      * Reset successor relationship of a node
      * @param node The node to be processed
      */
