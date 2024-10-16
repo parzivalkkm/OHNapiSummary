@@ -6,9 +6,10 @@ import com.bai.util.Logging;
 import com.bai.util.Utils;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Program;
+import org.junit.Test;
+
 import java.io.File;
 import java.util.Map;
-import org.junit.Test;
 
 /**
  * #include <stdlib.h>

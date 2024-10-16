@@ -1,21 +1,17 @@
-import ghidra.program.model.address.Address;
-import ghidra.program.model.listing.Function;
-import com.bai.env.ALoc;
-import com.bai.env.AbsEnv;
-import com.bai.env.AbsVal;
-import com.bai.env.Context;
-import com.bai.env.Interval;
-import com.bai.env.KSet;
+import com.bai.env.*;
 import com.bai.env.region.Local;
 import com.bai.env.region.Reg;
 import com.bai.solver.ConstraintSolver;
 import com.bai.solver.PcodeVisitor;
 import com.bai.util.GlobalState;
-import java.io.File;
-import java.util.Map;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.Function;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.io.File;
+import java.util.Map;
 
 public class LoopBoundTest {
 

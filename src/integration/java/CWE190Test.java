@@ -4,8 +4,9 @@ import com.bai.util.CWEReport;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
 import ghidra.program.model.listing.Program;
-import java.io.File;
 import org.junit.Test;
+
+import java.io.File;
 
 public class CWE190Test extends IntegrationTestBase {
 

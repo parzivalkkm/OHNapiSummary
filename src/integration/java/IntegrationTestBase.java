@@ -1,25 +1,22 @@
+import com.bai.env.Context;
 import com.bai.env.funcs.FunctionModelManager;
-import com.bai.util.Utils;
+import com.bai.solver.InterSolver;
+import com.bai.util.*;
 import ghidra.app.plugin.core.analysis.AutoAnalysisManager;
 import ghidra.app.util.importer.AutoImporter;
 import ghidra.app.util.importer.MessageLog;
-import ghidra.app.util.opinion.LoadResults;
 import ghidra.program.flatapi.FlatProgramAPI;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.test.AbstractGhidraHeadlessIntegrationTest;
+import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitorAdapter;
-import com.bai.env.Context;
-import com.bai.solver.InterSolver;
-import com.bai.util.Architecture;
-import com.bai.util.Config;
-import com.bai.util.GlobalState;
-import com.bai.util.Logging;
+import org.junit.BeforeClass;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.BeforeClass;
 
 public abstract class IntegrationTestBase extends AbstractGhidraHeadlessIntegrationTest {
 
@@ -33,15 +30,14 @@ public abstract class IntegrationTestBase extends AbstractGhidraHeadlessIntegrat
 
     protected Program prepareProgram(File file) throws Exception {
         GlobalState.reset();
-        LoadResults<Program> loadResults = AutoImporter.importByUsingBestGuess(file, null, null, this, new MessageLog(),
+        Program program = AutoImporter.importByUsingBestGuess(file, null, this, new MessageLog(),
                 TaskMonitorAdapter.DUMMY);
-        Program program = loadResults.getPrimaryDomainObject();
         AutoAnalysisManager analysisManager = AutoAnalysisManager.getAnalysisManager(program);
         analysisManager.initializeOptions();
         final int tid = program.startTransaction("analysis");
         GlobalState.currentProgram = program;
         GlobalState.flatAPI = new FlatProgramAPI(program);
-        if (!program.getOptions(Program.PROGRAM_INFO).getBoolean(Program.ANALYZED_OPTION_NAME, false)) {
+        if (!program.getOptions(Program.PROGRAM_INFO).getBoolean(Program.ANALYZED, false)) {
             GlobalState.flatAPI.analyzeAll(program);
         }
         program.endTransaction(tid, true);
@@ -50,7 +46,7 @@ public abstract class IntegrationTestBase extends AbstractGhidraHeadlessIntegrat
         return program;
     }
 
-    protected void analyzeFromMain(Program program) {
+    protected void analyzeFromMain(Program program) throws CancelledException {
         List<Function> functions = program.getListing().getGlobalFunctions("main");
         assert functions.size() == 1 : "Multiple functions with the name \"main\"";
         Function mainFunction = functions.get(0);
@@ -58,7 +54,7 @@ public abstract class IntegrationTestBase extends AbstractGhidraHeadlessIntegrat
         solver.run();
     }
 
-    protected void analyzeFromAddress(Program program, Address address) {
+    protected void analyzeFromAddress(Program program, Address address) throws CancelledException {
         Function startFunction = GlobalState.flatAPI.getFunctionAt(address);
         InterSolver solver = new InterSolver(startFunction, false);
         solver.run();

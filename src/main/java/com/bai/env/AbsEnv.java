@@ -349,7 +349,7 @@ public class AbsEnv {
         sb.append(aLoc).append(" -> ").append(kSet).append("\n");
     }
 
-    private void writeRegEntry(StringBuilder sb, ALoc aLoc, KSet kSet) {
+    public void writeRegEntry(StringBuilder sb, ALoc aLoc, KSet kSet) {
         Register register = GlobalState.currentProgram.getLanguage()
                 .getRegister(GlobalState.flatAPI.getAddressFactory().getRegisterSpace(), aLoc.getBegin(),
                         aLoc.getLen());

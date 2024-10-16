@@ -3,8 +3,9 @@ import com.bai.env.Context;
 import com.bai.util.Logging;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
-import java.io.File;
 import org.junit.Test;
+
+import java.io.File;
 
 /**
  * #include <stdio.h>

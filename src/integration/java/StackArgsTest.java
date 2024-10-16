@@ -5,8 +5,9 @@ import com.bai.env.KSet;
 import com.bai.env.region.Reg;
 import com.bai.util.GlobalState;
 import ghidra.program.model.listing.Program;
-import java.io.File;
 import org.junit.Test;
+
+import java.io.File;
 
 public class StackArgsTest extends IntegrationTestBase {
 

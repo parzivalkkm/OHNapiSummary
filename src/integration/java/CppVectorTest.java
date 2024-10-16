@@ -6,9 +6,10 @@ import com.bai.env.region.Reg;
 import com.bai.util.GlobalState;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
-import java.io.File;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.io.File;
 
 /**
  * #include <vector>

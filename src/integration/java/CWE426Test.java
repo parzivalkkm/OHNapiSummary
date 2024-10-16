@@ -3,8 +3,9 @@ import com.bai.util.CWEReport;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
 import ghidra.program.model.listing.Program;
-import java.io.File;
 import org.junit.Test;
+
+import java.io.File;
 
 /**
  * #define _GNU_SOURCE
