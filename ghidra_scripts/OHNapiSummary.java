@@ -10,6 +10,7 @@ import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.InstructionIterator;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
+import hust.cse.ohnapisummary.checkers.ModuleInitChecker;
 import org.apache.commons.lang3.StringUtils;
 import ghidra.program.model.symbol.Reference;
 import hust.cse.ohnapisummary.checkers.RegisterChecker;
@@ -36,18 +37,6 @@ public class OHNapiSummary extends BinAbsInspector {
         if (!Logging.init()) {
             return;
         }
-//        if (conf.getNoModel()) {
-//            println("Warning: disabling function models is only for experiment, and should not be enabled in most cases.");
-//            FuncCoverage.isNoModel = true;
-//        }
-//        // only enable detailed info in noModel mode. (for experiment)
-//        Statistics stat = new Statistics(conf.getNoModel());
-//        stat.addStatistics(conf.getTimeout(), getCurrentProgram().getFunctionManager());
-//        println("Java home: "+System.getProperty("java.home"));
-//
-//        MyGlobalState.reset(this);
-//        // setup external blocks
-//        new EnvSetup(getCurrentProgram(), this, getState(), this).run();
 
 
         List<Function> registerFunctions = getRegisterFunctionAddress();
@@ -95,31 +84,23 @@ public class OHNapiSummary extends BinAbsInspector {
     private void handleRegisterFunction(Function f) {
         println("Handling function: " + f.getName());
 
-//        List<Reference> references = Utils.getReferences(List.of("napi_module_register"));
-//        println("References to napi_module_register: " + references.size());
-//        for (Reference reference : references) {
-//            Address toAddress = reference.getToAddress();
-//            Address fromAddress = reference.getFromAddress();
-//            Function callee = GlobalState.flatAPI.getFunctionAt(toAddress);
-//            Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
-//            if (callee == null || caller == null) {
-//                continue;
-//            }
-//            println(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
+//        reConfig(f);
+//        // 创建 RegisterChecker 实例
+//        RegisterChecker registerChecker = new RegisterChecker("RegisterChecker", "0.1");
+//        registerChecker.moduleRegisterFunc = f;
+//        registerChecker.check();
 //
+//        Function trueRegisterFunction = registerChecker.trueRegisterFunction;
+//        if (trueRegisterFunction != null) {
+//            println("True register function found: " + trueRegisterFunction.getName());
+//            printFunctionInfo(trueRegisterFunction);
+//        } else {
+//            println("True register function not found.");
 //        }
-        // 创建 RegisterChecker 实例
-        RegisterChecker registerChecker = new RegisterChecker("RegisterChecker", "0.1");
-        registerChecker.moduleRegisterFunc = f;
-        registerChecker.check();
 
-        Function trueRegisterFunction = registerChecker.trueRegisterFunction;
-        if (trueRegisterFunction != null) {
-            println("True register function found: " + trueRegisterFunction.getName());
-            printFunctionInfo(trueRegisterFunction);
-        } else {
-            println("True register function not found.");
-        }
+        reConfig(null);
+        ModuleInitChecker moduleInitChecker = new ModuleInitChecker("ModuleInitChecker", "0.1");
+        moduleInitChecker.check();
 
     }
 
@@ -151,5 +132,14 @@ public class OHNapiSummary extends BinAbsInspector {
         println("Function address: " + f.getEntryPoint());
         println("Function signature: " + f.getSignature());
         println("Function comment: " + f.getComment());
+    }
+
+    private void reConfig(Function f) {
+        GlobalState.reset();
+        GlobalState.config = Config.HeadlessParser.parseConfig(StringUtils.join(getScriptArgs()).strip());
+
+        GlobalState.config.clearCheckers();
+//        GlobalState.config.setEntryAddress("0x" + Long.toHexString(f.getEntryPoint().getOffset()));
+        GlobalState.config.setTimeout(-1);
     }
 }
