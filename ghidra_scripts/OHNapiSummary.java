@@ -1,7 +1,3 @@
-import com.bai.env.AbsEnv;
-import com.bai.env.AbsVal;
-import com.bai.env.Context;
-import com.bai.env.KSet;
 import com.bai.util.*;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
@@ -11,6 +7,7 @@ import ghidra.program.model.listing.InstructionIterator;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
 import hust.cse.ohnapisummary.checkers.ModuleInitChecker;
+import hust.cse.ohnapisummary.util.EnvSetup;
 import org.apache.commons.lang3.StringUtils;
 import ghidra.program.model.symbol.Reference;
 import hust.cse.ohnapisummary.checkers.RegisterChecker;
@@ -37,7 +34,7 @@ public class OHNapiSummary extends BinAbsInspector {
         if (!Logging.init()) {
             return;
         }
-
+        new EnvSetup(getCurrentProgram(), this, getState(), this).run();
 
         List<Function> registerFunctions = getRegisterFunctionAddress();
 
