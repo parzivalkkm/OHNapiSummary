@@ -34,6 +34,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.javimmutable.collections.JImmutableMap;
@@ -682,6 +684,7 @@ public class PcodeVisitor {
         if (callee.isExternal() || FunctionModelManager.isFunctionAddressMapped(targetAddress)) {
             defineExternalFunctionSignature(pcode, inOutEnv, tmpEnv, callee);
             MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
+            NAPIFunctionBase.currentCallSite = callSite;
             Status status = invokeExternal(pcode, inOutEnv, tmpEnv, callee);
             if (status.noReturn) {
                 jumpOut = true;
@@ -806,6 +809,7 @@ public class PcodeVisitor {
                 defineExternalFunctionSignature(pcode, inOutEnv, tmpEnv, callee);
                 // CWE119, CWE416, CWE416, CWE476
                 MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
+                NAPIFunctionBase.currentCallSite = callSite;
                 status = invokeExternal(pcode, inOutEnv, tmpEnv, callee);
                 if (status == null) {
                     continue;

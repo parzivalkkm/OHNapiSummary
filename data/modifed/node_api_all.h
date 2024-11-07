@@ -14,7 +14,7 @@ typedef signed int int32_t;
 typedef unsigned _Addr size_t;
 typedef unsigned short  uint16_t;
 
-typedef char16_t uint16_t;
+typedef uint16_t char16_t;
 
 /*************************************************************************** +
  * 

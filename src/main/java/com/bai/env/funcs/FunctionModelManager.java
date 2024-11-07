@@ -39,6 +39,8 @@ import com.bai.util.Logging;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Namespace;
+import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +88,10 @@ public class FunctionModelManager {
             // stdlib
             new MemcpyFunction(),
             new AtoiFunction(),
-            new PutsFunction()
+            new PutsFunction(),
+
+            // NAPI functions
+            new NAPIFunctionBase()
     );
 
     private static List<String> stdNameSpaceStringList = List.of("std");

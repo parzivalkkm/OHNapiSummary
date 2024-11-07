@@ -12,10 +12,7 @@ import ghidra.program.database.symbol.FunctionSymbol;
 import ghidra.program.flatapi.FlatProgramAPI;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.data.*;
-import ghidra.program.model.listing.Function;
-import ghidra.program.model.listing.FunctionIterator;
-import ghidra.program.model.listing.Library;
-import ghidra.program.model.listing.Program;
+import ghidra.program.model.listing.*;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.*;
 import ghidra.util.exception.InvalidInputException;
@@ -45,21 +42,21 @@ public class EnvSetup {
     }
 
     public Structure getNAPIModuleStructType() throws Exception {
-        DataTypeManager archive = getModuleDataTypeManager(flatAPI, "node_api_basic");
-        DataType raw = archive.getDataType("/node_api_basic.h/napi_module");
+        DataTypeManager archive = getModuleDataTypeManager(flatAPI, "node_api_all");
+        DataType raw = archive.getDataType("/node_api_all.h/napi_module");
         return (Structure) raw;
     }
 
     public Structure getNAPIPropertyDescriptorStructType() throws Exception {
-        DataTypeManager archive = getModuleDataTypeManager(flatAPI, "node_api_basic");
-        DataType raw = archive.getDataType("/node_api_basic.h/napi_property_descriptor");
+        DataTypeManager archive = getModuleDataTypeManager(flatAPI, "node_api_all");
+        DataType raw = archive.getDataType("/node_api_all.h/napi_property_descriptor");
         return (Structure) raw;
     }
 
     public static DataTypeManager getModuleDataTypeManager(FlatProgramAPI flatAPI, String gdt_name) throws Exception {
         // default to jni_all
         if (gdt_name == null) {
-            gdt_name = "node_api_basic";
+            gdt_name = "node_api_all";
         }
 
         AutoAnalysisManager aam = AutoAnalysisManager.getAnalysisManager(flatAPI.getCurrentProgram());
@@ -136,6 +133,10 @@ public class EnvSetup {
                 // ensure function signature is uninitialized
                 if (f.getParameterCount() == 0) {
                     script.println("Applying signature to "+fname);
+                    script.println("Function: "+ fname2sig.get(fname));
+
+                    Namespace ext = getCurrentProgram().getExternalManager().getExternalLibrary("<EXTERNAL>");
+                    getCurrentProgram().getExternalManager().addExtFunction(ext, fname2sig.get(fname).getName(),null, SourceType.ANALYSIS, true);
                     applyFunctionSig(f, fname2sig.get(fname));
                 }
             }
@@ -156,9 +157,9 @@ public class EnvSetup {
         Structure napiModule = getNAPIModuleStructType();
         Namespace ext = getCurrentProgram().getExternalManager().getExternalLibrary("<EXTERNAL>");
 
-        DataTypeManager archive = getModuleDataTypeManager(flatAPI, "node_api_basic");
+        DataTypeManager archive = getModuleDataTypeManager(flatAPI, "node_api_all");
 //        // 注册napi_module_register
-//        DataType napi_module_register_type = archive.getDataType("/node_api_basic.h/napi_module_register");
+//        DataType napi_module_register_type = archive.getDataType("/node_api_all.h/napi_module_register");
 //        ExternalLocation el = createExternalFunctionLocation(napi_module_register_type);
 //
 //        // 注册napi_define_properties
@@ -170,7 +171,7 @@ public class EnvSetup {
 //            script.println("Thunk func not exist.");
 //        }
         SymbolTable table = currentProgram.getSymbolTable();
-        Map<String, FunctionDefinition> fname2sig = getFuncDefMap(getModuleDataTypeManager(flatAPI, "node_api_basic"), "/node_api_basic.h/functions");
+        Map<String, FunctionDefinition> fname2sig = getFuncDefMap(getModuleDataTypeManager(flatAPI, "node_api_all"), "/node_api_all.h/functions");
         script.println("Applying extern function signatures");
         MemoryBlock blk = flatAPI.getMemoryBlock(MemoryBlock.EXTERNAL_BLOCK_NAME);
         if (blk == null) {

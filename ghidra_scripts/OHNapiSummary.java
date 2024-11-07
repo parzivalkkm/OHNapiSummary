@@ -1,13 +1,17 @@
+import com.bai.env.ALoc;
+import com.bai.env.AbsEnv;
+import com.bai.env.Context;
+import com.bai.env.KSet;
+import com.bai.env.funcs.FunctionModelManager;
 import com.bai.util.*;
 import ghidra.program.model.address.Address;
-import ghidra.program.model.listing.Function;
-import ghidra.program.model.listing.FunctionManager;
-import ghidra.program.model.listing.Instruction;
-import ghidra.program.model.listing.InstructionIterator;
+import ghidra.program.model.listing.*;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
+import ghidra.util.exception.CancelledException;
 import hust.cse.ohnapisummary.checkers.ModuleInitChecker;
 import hust.cse.ohnapisummary.util.EnvSetup;
+import hust.cse.ohnapisummary.util.MyGlobalState;
 import org.apache.commons.lang3.StringUtils;
 import ghidra.program.model.symbol.Reference;
 import hust.cse.ohnapisummary.checkers.RegisterChecker;
@@ -15,9 +19,61 @@ import org.python.antlr.op.Add;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class OHNapiSummary extends BinAbsInspector {
 
+    private void runForRegisterFunction(Function f) throws CancelledException {
+        GlobalState.reset();
+        MyGlobalState.reset();
+        if (isRunningHeadless()) {
+            String allArgString = StringUtils.join(getScriptArgs()).strip();
+            GlobalState.config = Config.HeadlessParser.parseConfig(allArgString);
+        } else {
+            GlobalState.ghidraScript = this;
+            GlobalState.config = new Config();
+            GlobalState.config.setGUI(true); // TODO change
+            // change config here
+            GlobalState.config.setEnableZ3(false);
+        }
+//        GlobalState.config.setDebug(true);
+        GlobalState.config.clearCheckers();
+        GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
+
+        GlobalState.config.setTimeout(-1);
+
+        if (!Logging.init()) {
+            return;
+        }
+        FunctionModelManager.initAll();
+        if (GlobalState.config.isEnableZ3() && !Utils.checkZ3Installation()) {
+            return;
+        }
+        Logging.info("Preparing the program");
+        if (!prepareProgram()) {
+            Logging.error("Failed to prepare the program");
+            return;
+        }
+        if (isRunningHeadless()) {
+            if (!Utils.registerExternalFunctionsConfig(GlobalState.currentProgram, GlobalState.config)) {
+                Logging.error("Failed to registerExternalFunctionsConfig, existing.");
+                return;
+            }
+        } else {
+//            Utils.loadCustomExternalFunctionFromLabelHistory(GlobalState.currentProgram);
+        }
+        GlobalState.arch = new Architecture(GlobalState.currentProgram);
+
+        boolean success = analyze();
+        if (!success) {
+            Logging.error("Failed to analyze the program: no entrypoint.");
+            return;
+        }
+
+        Logging.info("Running checkers");
+        ModuleInitChecker moduleInitChecker = new ModuleInitChecker("ModuleInitChecker", "0.1");
+        moduleInitChecker.check();
+    }
 
     @Override
     public void run() throws Exception {
@@ -36,12 +92,34 @@ public class OHNapiSummary extends BinAbsInspector {
         }
         new EnvSetup(getCurrentProgram(), this, getState(), this).run();
 
-        List<Function> registerFunctions = getRegisterFunctionAddress();
 
-        for (Function f : registerFunctions) {
-            printFunctionInfo(f);
-            handleRegisterFunction(f);
+
+        List<Reference> references = Utils.getReferences(List.of("napi_define_properties"));
+        for (Reference reference : references) {
+            Address toAddress = reference.getToAddress();
+            Address fromAddress = reference.getFromAddress();
+            Function callee = GlobalState.flatAPI.getFunctionAt(toAddress);
+            Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
+            Parameter[] params = callee.getParameters();
+            Logging.info("callee param size: " + params.length);
+
+            if (callee == null || caller == null) {
+                continue;
+            }
+            Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
+
+            runForRegisterFunction(caller);
+
         }
+
+
+
+//        List<Function> registerFunctions = getRegisterFunctionAddress();
+
+//        for (Function f : registerFunctions) {
+//            printFunctionInfo(f);
+//            handleRegisterFunction(f);
+//        }
 
         long duration = System.currentTimeMillis() - start;
 
@@ -95,9 +173,9 @@ public class OHNapiSummary extends BinAbsInspector {
 //            println("True register function not found.");
 //        }
 
-        reConfig(null);
-        ModuleInitChecker moduleInitChecker = new ModuleInitChecker("ModuleInitChecker", "0.1");
-        moduleInitChecker.check();
+//        reConfig(null);
+//        ModuleInitChecker moduleInitChecker = new ModuleInitChecker("ModuleInitChecker", "0.1");
+//        moduleInitChecker.check();
 
     }
 
