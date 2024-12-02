@@ -45,6 +45,7 @@ public class MemcpyFunction extends ExternalFunctionBase {
                 if (absVal.isBigVal()) {
                     continue;
                 }
+                Logging.info("memcpy size: " + size);
                 size = Math.max(size, Math.min(StringUtils.MAX_LEN, absVal.getValue()));
             }
         }
@@ -59,6 +60,7 @@ public class MemcpyFunction extends ExternalFunctionBase {
                 if (dstPtr.isBigVal()) {
                     continue;
                 }
+                Logging.info("memcpy: " + dstPtr + " <- " + srcPtr + " size: " + size);
                 StringUtils.copyString(dstPtr, srcPtr, inOutEnv, (int) size);
             }
         }

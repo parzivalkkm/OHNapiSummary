@@ -47,7 +47,7 @@ import org.javimmutable.collections.JImmutableMap.Entry;
 public class StringUtils {
 
     private static final int DEFAULT_LEN = 0x10;
-    public static final int MAX_LEN = 0x100;
+    public static final int MAX_LEN = 0x400;  // 更改了长度
     private static final Pattern FORMAT_PATTERN = Pattern.compile("%\\.?\\d*([lLh]{0,2}[cdieEfgGosuxXpn])");
     private static final String TMP_NAME = "tmpname";
     private static final DataType CHAR_PTR = PointerDataType.getPointer(CharDataType.dataType, -1);
