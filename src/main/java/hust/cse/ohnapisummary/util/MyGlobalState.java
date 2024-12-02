@@ -28,6 +28,7 @@ public class MyGlobalState {
 
     public static void reset(GhidraScript main) {
         flatapi = main;
+        defaultPointerSize = main.getCurrentProgram().getDefaultPointerSize();
         napiManager = new NAPIManager();
         try {
             decom = new DecompilerCache(main.getState());
