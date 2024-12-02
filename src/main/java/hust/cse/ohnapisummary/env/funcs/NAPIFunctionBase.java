@@ -20,10 +20,15 @@ public class NAPIFunctionBase extends ExternalFunctionBase {
     private static final Set<String> staticSymbols = Set.of(
             "napi_define_properties",
             "napi_module_register"
+//            "napi_get_value_double"
     );
 
     public NAPIFunctionBase() {
         super(staticSymbols);
+    }
+
+    @Override
+    public void defineDefaultSignature(Function callFunction) {
     }
 
     public NAPIFunctionBase(Set<String> symbols) {
@@ -43,11 +48,14 @@ public class NAPIFunctionBase extends ExternalFunctionBase {
         ALoc retALoc = getReturnALoc(calleeFunc, false);
         if (funcName.equals("napi_define_properties")) {
             NAPIValue nv = recordCall(context, calleeFunc);
-            ret = getParamKSet(calleeFunc, 3, inOutEnv);
 
         } else if (funcName.equals("napi_module_register")) {
-            ret = getParamKSet(calleeFunc, 0, inOutEnv);
+
+        } else if (funcName.equals("napi_get_value_double")) {
+            NAPIValue nv = recordCall(context, calleeFunc);
+
         }
+
         if (ret != null) {
             inOutEnv.set(retALoc, ret, true);
         }

@@ -135,8 +135,9 @@ public class EnvSetup {
                     script.println("Applying signature to "+fname);
                     script.println("Function: "+ fname2sig.get(fname));
 
-                    Namespace ext = getCurrentProgram().getExternalManager().getExternalLibrary("<EXTERNAL>");
-                    getCurrentProgram().getExternalManager().addExtFunction(ext, fname2sig.get(fname).getName(),null, SourceType.ANALYSIS, true);
+//                    Namespace ext = getCurrentProgram().getExternalManager().getExternalLibrary("<EXTERNAL>");
+//                    Address address = f.getEntryPoint();
+//                    getCurrentProgram().getExternalManager().addExtFunction(ext, fname2sig.get(fname).getName(),address, SourceType.ANALYSIS, true);
                     applyFunctionSig(f, fname2sig.get(fname));
                 }
             }
@@ -173,6 +174,12 @@ public class EnvSetup {
         SymbolTable table = currentProgram.getSymbolTable();
         Map<String, FunctionDefinition> fname2sig = getFuncDefMap(getModuleDataTypeManager(flatAPI, "node_api_all"), "/node_api_all.h/functions");
         script.println("Applying extern function signatures");
+        MemoryBlock pltblk = flatAPI.getMemoryBlock(".plt");
+        if (pltblk == null) {
+            script.println("ERROR: cannot find memory block for plt section.");
+        } else {
+            setSigAndThunkInBlock(pltblk, fname2sig);
+        }
         MemoryBlock blk = flatAPI.getMemoryBlock(MemoryBlock.EXTERNAL_BLOCK_NAME);
         if (blk == null) {
             script.println("ERROR: cannot find memory block for external section.");
@@ -180,6 +187,5 @@ public class EnvSetup {
             setSigAndThunkInBlock(blk, fname2sig);
         }
     }
-
 
 }

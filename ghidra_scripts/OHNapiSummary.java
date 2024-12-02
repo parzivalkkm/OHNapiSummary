@@ -1,3 +1,10 @@
+//
+//@author SECURITY PRIDE
+//@category Analysis
+//@keybinding
+//@menupath Analysis.OHNapiSummary
+//@toolbar
+
 import com.bai.env.ALoc;
 import com.bai.env.AbsEnv;
 import com.bai.env.Context;
@@ -23,76 +30,21 @@ import java.util.logging.Logger;
 
 public class OHNapiSummary extends BinAbsInspector {
 
-    private void runForRegisterFunction(Function f) throws CancelledException {
-        GlobalState.reset();
-        MyGlobalState.reset();
-        if (isRunningHeadless()) {
-            String allArgString = StringUtils.join(getScriptArgs()).strip();
-            GlobalState.config = Config.HeadlessParser.parseConfig(allArgString);
-        } else {
-            GlobalState.ghidraScript = this;
-            GlobalState.config = new Config();
-            GlobalState.config.setGUI(true); // TODO change
-            // change config here
-            GlobalState.config.setEnableZ3(false);
-        }
-//        GlobalState.config.setDebug(true);
-        GlobalState.config.clearCheckers();
-        GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
-
-        GlobalState.config.setTimeout(-1);
-
-        if (!Logging.init()) {
-            return;
-        }
-        FunctionModelManager.initAll();
-        if (GlobalState.config.isEnableZ3() && !Utils.checkZ3Installation()) {
-            return;
-        }
-        Logging.info("Preparing the program");
-        if (!prepareProgram()) {
-            Logging.error("Failed to prepare the program");
-            return;
-        }
-        if (isRunningHeadless()) {
-            if (!Utils.registerExternalFunctionsConfig(GlobalState.currentProgram, GlobalState.config)) {
-                Logging.error("Failed to registerExternalFunctionsConfig, existing.");
-                return;
-            }
-        } else {
-//            Utils.loadCustomExternalFunctionFromLabelHistory(GlobalState.currentProgram);
-        }
-        GlobalState.arch = new Architecture(GlobalState.currentProgram);
-
-        boolean success = analyze();
-        if (!success) {
-            Logging.error("Failed to analyze the program: no entrypoint.");
-            return;
-        }
-
-        Logging.info("Running checkers");
-        ModuleInitChecker moduleInitChecker = new ModuleInitChecker("ModuleInitChecker", "0.1");
-        moduleInitChecker.check();
-    }
-
     @Override
     public void run() throws Exception {
         long start = System.currentTimeMillis();
-        // parse cmdline once
-        Config conf = Config.HeadlessParser.parseConfig(StringUtils.join(getScriptArgs()).strip());
-        if (conf.getNoOpt()) {
-            println("Warning: disabling CalleeSavedReg optimization and local stack value passing optimization is only for experiment, and should not be enabled in most cases.");
-        }
+
+        MyGlobalState.reset(this);
+        new EnvSetup(getCurrentProgram(), this, getState(), this).run();
+
         GlobalState.ghidraScript = this;
         GlobalState.config = new Config();
         GlobalState.currentProgram = getCurrentProgram();
         GlobalState.flatAPI = this;
+
         if (!Logging.init()) {
             return;
         }
-        new EnvSetup(getCurrentProgram(), this, getState(), this).run();
-
-
 
         List<Reference> references = Utils.getReferences(List.of("napi_define_properties"));
         for (Reference reference : references) {
@@ -109,22 +61,79 @@ public class OHNapiSummary extends BinAbsInspector {
             Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
 
             runForRegisterFunction(caller);
-
+            break;
         }
-
-
-
-//        List<Function> registerFunctions = getRegisterFunctionAddress();
-
-//        for (Function f : registerFunctions) {
-//            printFunctionInfo(f);
-//            handleRegisterFunction(f);
-//        }
 
         long duration = System.currentTimeMillis() - start;
 
         println("OHNapiSummary script execution time: " + duration + "ms.");
     }
+
+    private void runForRegisterFunction(Function f) throws CancelledException {
+
+        GlobalState.reset();
+
+        if (isRunningHeadless()) {
+            String allArgString = StringUtils.join(getScriptArgs()).strip();
+            GlobalState.config = Config.HeadlessParser.parseConfig(allArgString);
+        } else {
+            GlobalState.ghidraScript = this;
+            GlobalState.config = new Config();
+            GlobalState.config.setGUI(true); // TODO change
+            // change config here
+            GlobalState.config.setEnableZ3(false);
+
+        }
+
+        GlobalState.config.clearCheckers();
+        GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
+
+        GlobalState.config.setTimeout(-1);
+
+        FunctionModelManager.initAll();
+
+        if (GlobalState.config.isEnableZ3() && !Utils.checkZ3Installation()) {
+            return;
+        }
+
+        Logging.info("Preparing the program");
+        if (!prepareProgram()) {
+            Logging.error("Failed to prepare the program");
+            return;
+        }
+
+        if (isRunningHeadless()) {
+            if (!Utils.registerExternalFunctionsConfig(GlobalState.currentProgram, GlobalState.config)) {
+                Logging.error("Failed to registerExternalFunctionsConfig, existing.");
+                return;
+            }
+        } else {
+            Utils.loadCustomExternalFunctionFromLabelHistory(GlobalState.currentProgram);
+        }
+        GlobalState.arch = new Architecture(GlobalState.currentProgram);
+
+        boolean success = analyze();
+        if (!success) {
+            Logging.error("Failed to analyze the program: no entrypoint.");
+            return;
+        }
+
+        List<Reference> references = Utils.getReferences(List.of("napi_define_properties"));
+        for (Reference reference : references) {
+            Address toAddress = reference.getToAddress();
+            Address fromAddress = reference.getFromAddress();
+            Function callee = GlobalState.flatAPI.getFunctionAt(toAddress);
+            Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
+            Parameter[] params = callee.getParameters();
+            Logging.info("callee param size: " + params.length);
+            Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
+        }
+
+        Logging.info("Running checkers");
+        ModuleInitChecker moduleInitChecker = new ModuleInitChecker("ModuleInitChecker", "0.1");
+        moduleInitChecker.check();
+    }
+
 
     private List<Function> getRegisterFunctionAddress() throws MemoryAccessException {
         FunctionManager functionManager = currentProgram.getFunctionManager();

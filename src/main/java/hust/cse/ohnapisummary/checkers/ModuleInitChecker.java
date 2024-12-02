@@ -6,15 +6,35 @@ import com.bai.util.GlobalState;
 import com.bai.util.Logging;
 import com.bai.util.Utils;
 import com.caucho.hessian4.io.LocaleHandle;
+import com.sun.jna.platform.win32.WinDef;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.lang.Register;
+import ghidra.program.model.lang.RegisterValue;
+import ghidra.program.model.listing.ContextChangeException;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Parameter;
+import ghidra.program.model.listing.ProgramContext;
+import ghidra.program.model.mem.MemoryAccessException;
+import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.Reference;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
 
+import java.io.ByteArrayOutputStream;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.LoggingPermission;
 
 public class ModuleInitChecker extends CheckerBase {
     public ModuleInitChecker(String cwe, String version) {
@@ -38,73 +58,102 @@ public class ModuleInitChecker extends CheckerBase {
                 Logging.error("Cannot find called external function for 0x" + Long.toHexString(callsite));
                 continue;
             }
+
+
+            Parameter[] params = callee.getParameters();
+
+            int paramSize = callee.getParameters().length;
+            Logging.info("callee: " + callee);
+            Logging.info("callee address: " + callee.getEntryPoint());
+            Logging.info("param size: " + paramSize);
+            Logging.info("caller context: " + Context.getContext(caller).size());
+            Logging.info("callee context: " + Context.getContext(callee).size());
+
             AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callsite));
             if (absEnv == null) {
                 Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callsite));
                 continue;
             }
 
-            Parameter[] params = callee.getParameters();
-            int paramSize = callee.getParameters().length;
-            Logging.info("callee: " + callee);
-            Logging.info("param size: " + paramSize);
+            Parameter descriptorParam = callee.getParameter(3);
+            List<ALoc> alocs = getParamALocs(callee, 3, absEnv);
 
-//        Address toAddress = reference.getToAddress();
-//        Address fromAddress = reference.getFromAddress();
-//        Function callee = GlobalState.flatAPI.getFunctionAt(toAddress);
-//        Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
-//        if (callee == null || caller == null) {
-//            Logging.error("callee or caller is null");
-//            return false;
-//        }
-//        Logging.info("caller context: " + Context.getContext(caller).size());
-//        Logging.info("callee context: " + Context.getContext(callee).size());
-//
-//        for (Context context : Context.getContext(caller)) {
-//            AbsEnv absEnv = context.getAbsEnvIn().get(fromAddress);
-//
-//            if (absEnv == null) {
-//                Logging.info("absEnv is null");
-//                continue;
-//            }
-//
-//            Logging.info("absEnv : " + absEnv);
-//            // napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
-//            // 首先获取第三个参数的值，得到动态注册的api个数
-//            Parameter[] params = callee.getParameters();
-//            int paramSize = callee.getParameters().length;
-//            Logging.info("param size: " + paramSize);
-//            for (int i = 0; i < paramSize; i++) {
-//                Parameter p = params[i];
-//                Logging.info("param: " + p.getName());
-//                Logging.info("param data type: " + p.getDataType().getName());
-//                List<ALoc> alocs = getParamALocs(callee, i, absEnv);
-//                Logging.info("alocs size: " + alocs.size());
-//            }
+            for (ALoc aloc: alocs) {
+                KSet ks = absEnv.get(aloc);
+                Logging.info("ALoc: " + aloc);
 
+                // handle RegisterNatives.
+                if (descriptorParam.getDataType().getName().equals("napi_property_descriptor *")) {
+                    for (AbsVal val: ks) {
+                        if (val.getRegion().isGlobal()) {
+                            Logging.info("Global region: " + val);
+                        } else {
+                            Logging.info("Not global region: " + val);
+                        }
+                        resolveNAPIRegisterAt(val, absEnv);
 
-//                Parameter p = callee.getParameter(2);
-//                Logging.info("param: " + p.getName());
-//                Logging.info("param data type: " + p.getDataType().getName());
-//                for (ALoc aloc : alocs) {
-//                    KSet ks = absEnv.get(aloc);
-//
-//                    for (AbsVal val: ks) {
-//                        if (val.getRegion().isLocal()) {
-//                            Logging.info("local: " + val);
-//                        }else{
-//                            Logging.info("global: " + val);
-//                        }
-//                        resolveRegisteredAPIs(val, absEnv);
-//                    }
-//                }
+                    }
 
-
+                }
+            }
 
 
         }
         return false;
     }
 
+    private void resolveNAPIRegisterAt(AbsVal ptr, AbsEnv env) {
+
+    }
+
+
+    private String decodeStr(AbsEnv env, AbsVal val) {
+        if (!val.getRegion().isGlobal()) {
+            Logging.warn("Cannot decode non global str ptr.");
+            return null;
+        }
+        long addr = val.getValue();
+        if (addr < 0x100) {
+            return null;
+        }
+        byte[] bs = null;
+        try {
+            bs = getStringFromMemory(GlobalState.flatAPI.toAddr(addr));
+        } catch (MemoryAccessException e) {
+            Logging.error("JNI char* decode failed! 0x"+Long.toHexString(addr));
+            return null;
+        }
+        if (bs == null) {
+            return null;
+        }
+        String s;
+        try {
+            Charset csets = StandardCharsets.UTF_8;
+            CharsetDecoder cd = csets.newDecoder();
+            CharBuffer r = cd.decode(ByteBuffer.wrap(bs));
+            s = r.toString();
+        } catch (CharacterCodingException e) {
+            s = Arrays.toString(bs);
+        }
+        return s;
+    }
+
+    public static byte[] getStringFromMemory(Address addr) throws MemoryAccessException {
+        MemoryBlock mb = GlobalState.currentProgram.getMemory().getBlock(addr);
+        if (mb == null) {
+            Logging.error("JNI cannot decode string at 0x"+addr.toString());
+            return null;
+        }
+        if (mb.isWrite()) {
+            Logging.error("JNI constant str not from readonly section!");
+        }
+        StringBuilder sb = new StringBuilder();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        while(mb.getByte(addr) != 0) {
+            out.write(mb.getByte(addr));
+            addr = addr.add(1);
+        }
+        return out.toByteArray();
+    }
 
 }
