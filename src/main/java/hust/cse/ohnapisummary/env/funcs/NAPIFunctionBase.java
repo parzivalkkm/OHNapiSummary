@@ -48,11 +48,7 @@ public class NAPIFunctionBase extends ExternalFunctionBase {
         ALoc retALoc = getReturnALoc(calleeFunc, false);
         if (funcName.equals("napi_define_properties")) {
             NAPIValue nv = recordCall(context, calleeFunc);
-
         } else if (funcName.equals("napi_module_register")) {
-
-        } else if (funcName.equals("napi_get_value_double")) {
-            NAPIValue nv = recordCall(context, calleeFunc);
 
         }
 

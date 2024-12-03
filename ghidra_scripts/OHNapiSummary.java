@@ -12,9 +12,14 @@ import com.bai.env.KSet;
 import com.bai.env.funcs.FunctionModelManager;
 import com.bai.util.*;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.data.DataType;
+import ghidra.program.model.data.DataTypeManager;
 import ghidra.program.model.listing.*;
+import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
+import ghidra.program.model.pcode.PcodeOp;
+import ghidra.program.model.pcode.Varnode;
 import ghidra.util.exception.CancelledException;
 import hust.cse.ohnapisummary.checkers.ModuleInitChecker;
 import hust.cse.ohnapisummary.util.EnvSetup;
@@ -53,13 +58,11 @@ public class OHNapiSummary extends BinAbsInspector {
             Function callee = GlobalState.flatAPI.getFunctionAt(toAddress);
             Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
             Parameter[] params = callee.getParameters();
-            Logging.info("callee param size: " + params.length);
 
             if (callee == null || caller == null) {
                 continue;
             }
             Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
-
             runForRegisterFunction(caller);
             break;
         }
@@ -116,17 +119,6 @@ public class OHNapiSummary extends BinAbsInspector {
         if (!success) {
             Logging.error("Failed to analyze the program: no entrypoint.");
             return;
-        }
-
-        List<Reference> references = Utils.getReferences(List.of("napi_define_properties"));
-        for (Reference reference : references) {
-            Address toAddress = reference.getToAddress();
-            Address fromAddress = reference.getFromAddress();
-            Function callee = GlobalState.flatAPI.getFunctionAt(toAddress);
-            Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
-            Parameter[] params = callee.getParameters();
-            Logging.info("callee param size: " + params.length);
-            Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
         }
 
         Logging.info("Running checkers");
@@ -188,27 +180,6 @@ public class OHNapiSummary extends BinAbsInspector {
 
     }
 
-//    private Address getTrueRegisterFunctionAddress(AbsEnv absEnv, Function callee) {
-//        String name = callee.getName();
-//        if (callee.getParameterCount() < 1) {
-//            // Skip the call since Ghidra didn't detect suitable number of arguments
-//            Logging.debug("Not enough parameters for \"" + name + "()\" function");
-//            return null;
-//        }
-//        KSet argKSet = getParamKSet(callee, 0, absEnv);
-//        if (!argKSet.isNormal()) {
-//            Logging.debug("Abnormal KSet");
-//            return false;
-//        }
-//        if (!argKSet.isSingleton()) {
-//            return false;
-//        }
-//        AbsVal argAbsVal = argKSet.iterator().next();
-//        // We skip non-global regions and big integer values
-//        if (argAbsVal.isBigVal() || !argAbsVal.getRegion().isGlobal()) {
-//            return false;
-//        }
-//    }
 
 
     private void printFunctionInfo(Function f) {
