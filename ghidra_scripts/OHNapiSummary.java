@@ -5,33 +5,27 @@
 //@menupath Analysis.OHNapiSummary
 //@toolbar
 
-import com.bai.env.ALoc;
-import com.bai.env.AbsEnv;
-import com.bai.env.Context;
-import com.bai.env.KSet;
 import com.bai.env.funcs.FunctionModelManager;
 import com.bai.util.*;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonReader;
 import ghidra.program.model.address.Address;
-import ghidra.program.model.data.DataType;
-import ghidra.program.model.data.DataTypeManager;
 import ghidra.program.model.listing.*;
-import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
-import ghidra.program.model.pcode.PcodeOp;
-import ghidra.program.model.pcode.Varnode;
 import ghidra.util.exception.CancelledException;
 import hust.cse.ohnapisummary.checkers.ModuleInitChecker;
 import hust.cse.ohnapisummary.util.EnvSetup;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import org.apache.commons.lang3.StringUtils;
 import ghidra.program.model.symbol.Reference;
-import hust.cse.ohnapisummary.checkers.RegisterChecker;
-import org.python.antlr.op.Add;
 
+import java.io.File;
+import java.io.FileReader;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class OHNapiSummary extends BinAbsInspector {
 
@@ -51,6 +45,7 @@ public class OHNapiSummary extends BinAbsInspector {
             return;
         }
 
+        // 寻找module init函数并解析其进行的动态注册
         List<Reference> references = Utils.getReferences(List.of("napi_define_properties"));
         for (Reference reference : references) {
             Address toAddress = reference.getToAddress();
@@ -63,16 +58,27 @@ public class OHNapiSummary extends BinAbsInspector {
                 continue;
             }
             Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
-            runForRegisterFunction(caller);
+            runForModuleInitFunction(caller);
             break;
         }
+
+        // 读取 arkts字节码端 pre analysisi阶段获取的json格式函数信息
+        String exe_path = getCurrentProgram().getExecutablePath();
+        File binary = new File(exe_path);
+        File jp = new File(exe_path + ".funcs.json");
+        if (! jp.exists()) {
+            exe_path = Paths.get(getProjectRootFolder().getProjectLocator().getLocation(), "..", binary.getName()).toString();
+            jp = new File(exe_path + ".funcs.json");
+        }
+        JsonReader reader = new JsonReader(new FileReader(jp));
+        JsonObject arktsFuncInfoJson = new Gson().fromJson(reader, JsonObject.class);
 
         long duration = System.currentTimeMillis() - start;
 
         println("OHNapiSummary script execution time: " + duration + "ms.");
     }
 
-    private void runForRegisterFunction(Function f) throws CancelledException {
+    private void runForModuleInitFunction(Function f) throws CancelledException {
 
         GlobalState.reset();
 
@@ -157,30 +163,6 @@ public class OHNapiSummary extends BinAbsInspector {
         return candidates;
     }
 
-    private void handleRegisterFunction(Function f) {
-        println("Handling function: " + f.getName());
-
-//        reConfig(f);
-//        // 创建 RegisterChecker 实例
-//        RegisterChecker registerChecker = new RegisterChecker("RegisterChecker", "0.1");
-//        registerChecker.moduleRegisterFunc = f;
-//        registerChecker.check();
-//
-//        Function trueRegisterFunction = registerChecker.trueRegisterFunction;
-//        if (trueRegisterFunction != null) {
-//            println("True register function found: " + trueRegisterFunction.getName());
-//            printFunctionInfo(trueRegisterFunction);
-//        } else {
-//            println("True register function not found.");
-//        }
-
-//        reConfig(null);
-//        ModuleInitChecker moduleInitChecker = new ModuleInitChecker("ModuleInitChecker", "0.1");
-//        moduleInitChecker.check();
-
-    }
-
-
 
     private void printFunctionInfo(Function f) {
         println("Function name: " + f.getName());
@@ -189,12 +171,4 @@ public class OHNapiSummary extends BinAbsInspector {
         println("Function comment: " + f.getComment());
     }
 
-    private void reConfig(Function f) {
-        GlobalState.reset();
-        GlobalState.config = Config.HeadlessParser.parseConfig(StringUtils.join(getScriptArgs()).strip());
-
-        GlobalState.config.clearCheckers();
-//        GlobalState.config.setEntryAddress("0x" + Long.toHexString(f.getEntryPoint().getOffset()));
-        GlobalState.config.setTimeout(-1);
-    }
 }

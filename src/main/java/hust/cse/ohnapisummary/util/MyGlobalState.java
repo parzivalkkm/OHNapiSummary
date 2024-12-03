@@ -1,14 +1,14 @@
 package hust.cse.ohnapisummary.util;
 
-import com.bai.env.Context;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.flatapi.FlatProgramAPI;
-import ghidra.program.model.listing.Function;
 import ghidra.util.task.TaskMonitor;
-import hust.cse.ohnapisummary.checkers.RegisterChecker;
+import hust.cse.ohnapisummary.mapping.NAPIDescriptor;
+import hust.cse.ohnapisummary.mapping.NAPIMapping;
+
+import java.util.ArrayList;
 
 public class MyGlobalState {
-    public static NAPIManager napiManager;
 
     public static FlatProgramAPI flatapi;
 
@@ -25,11 +25,18 @@ public class MyGlobalState {
     // check at context main loop for timeout.
     public static boolean isTaskTimeout = false;
 
+    // 以下的field用于存储一些需要全局记录的信息
+    public static NAPICallManager napiManager;
+
+    public static ArrayList<NAPIDescriptor> dynRegNAPIList = new ArrayList<>();
+
+    public static ArrayList<NAPIMapping> napiMappingList = new ArrayList<>();
+
 
     public static void reset(GhidraScript main) {
         flatapi = main;
         defaultPointerSize = main.getCurrentProgram().getDefaultPointerSize();
-        napiManager = new NAPIManager();
+        napiManager = new NAPICallManager();
         try {
             decom = new DecompilerCache(main.getState());
         } catch (RuntimeException e) {

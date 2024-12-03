@@ -6,24 +6,18 @@ import com.bai.util.GlobalState;
 import com.bai.util.Logging;
 import com.bai.util.StringUtils;
 import com.bai.util.Utils;
-import com.sun.jna.platform.win32.WinDef;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Parameter;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
-import ghidra.program.model.pcode.PcodeOp;
-import ghidra.program.model.pcode.Varnode;
 import ghidra.program.model.symbol.Reference;
-import hust.cse.ohnapisummary.ir.value.Str;
+import hust.cse.ohnapisummary.mapping.NAPIDescriptor;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
-import org.apache.commons.lang3.ArrayUtils;
-import org.python.antlr.op.Add;
 
 import java.io.ByteArrayOutputStream;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -45,12 +39,12 @@ public class ModuleInitChecker extends CheckerBase {
 
     @Override
     public boolean check() {
-        Logging.info("Checking ModuleInitChecker");
         for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callSites.entrySet()) {
             NAPIValue napiValue = entry.getKey();
             Context context = entry.getValue();
             long callSite = napiValue.callsite;
             Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSite));
+            Logging.info("Checking ModuleInit Function" + caller.getName());
             Function callee = napiValue.getApi();
             if (callee == null) {
                 Logging.error("Cannot find called external function for 0x" + Long.toHexString(callSite));
@@ -65,6 +59,7 @@ public class ModuleInitChecker extends CheckerBase {
                 continue;
             }
 
+            // 解析napi_define_properties的第三个参数,即napi_property_descriptor数组的长度
             KSet sizeKSet = getParamKSet(callee, 2, absEnv);
             long size = 0;
             for (AbsVal absVal : sizeKSet) {
@@ -76,6 +71,7 @@ public class ModuleInitChecker extends CheckerBase {
 
             directlyResolveDyRegFromMemcpyParam(caller, (int) size);
 
+            // 解析napi_define_properties的第四个参数,即napi_property_descriptor数组的指针，因为是local最终以失败告终
 //            Parameter descriptorParam = callee.getParameter(3);
 //            KSet descriptorKSet =  getParamKSet(callee, 3, absEnv);
 
@@ -132,12 +128,12 @@ public class ModuleInitChecker extends CheckerBase {
             AbsVal srcPtr = srcPtrKSet.iterator().next();
             Logging.info("srcPtr: " + srcPtr.getValue());
 
-            directlyResolveNAPIDescriptorAt(srcPtr.getValue(),size);
+            directlyResolveNAPIDescriptorsAt(srcPtr.getValue(),size);
 
         }
     }
 
-    private void directlyResolveNAPIDescriptorAt(long ptr,int size){
+    private void directlyResolveNAPIDescriptorsAt(long ptr, int size){
         boolean failed = false;
         int index = 0;
         int ptrSize = MyGlobalState.defaultPointerSize;
@@ -145,30 +141,36 @@ public class ModuleInitChecker extends CheckerBase {
         int structSize = ptrSize*8;
         while(!failed && index < size) {
             Address base = GlobalState.flatAPI.toAddr(ptr + index * structSize);
-            Logging.info("Resolving NAPI descriptor at 0x"+base.toString());
-            Address utf8nameAddr = base.add(ptrSize*0);
-            Address napi_value_nameAddr = base.add(ptrSize*1);
-            Address napi_callbback_methodAddr = base.add(ptrSize*2);
-            Address napi_callbback_getterAddr = base.add(ptrSize*3);
-            Address napi_callbback_setterAddr = base.add(ptrSize*4);
-            Address napi_value_valueAddr = base.add(ptrSize*5);
-            Address attributesAddr = base.add(ptrSize*6);
-            Address dataAddr = base.add(ptrSize*7);
+            Address utf8nameAddr = base.add(ptrSize * 0);
+            Address napi_value_nameAddr = base.add(ptrSize * 1);
+            Address napi_callbback_methodAddr = base.add(ptrSize * 2);
+            Address napi_callbback_getterAddr = base.add(ptrSize * 3);
+            Address napi_callbback_setterAddr = base.add(ptrSize * 4);
+            Address napi_value_valueAddr = base.add(ptrSize * 5);
+            Address attributesAddr = base.add(ptrSize * 6);
+            Address dataAddr = base.add(ptrSize * 7);
 
+            String utf8nameStr = null;
+            Address napi_callbback_methodTrueAddr = null;
             try {
-                Address utf8nameTrueAddr = GlobalState.flatAPI.toAddr(getValueFromAddrWithPtrSize(utf8nameAddr.getOffset(),ptrSize));
-                Logging.info("utf8nameTrueAddr: " + utf8nameTrueAddr);
-                String utf8nameStr = getStrFromAddr(utf8nameTrueAddr.getOffset());
-                Logging.info("utf8name: " + utf8nameStr);
+                Address utf8nameTrueAddr = GlobalState.flatAPI.toAddr(getValueFromAddrWithPtrSize(utf8nameAddr.getOffset(), ptrSize));
+                utf8nameStr = getStrFromAddr(utf8nameTrueAddr.getOffset());
             } catch (MemoryAccessException e) {
                 throw new RuntimeException(e);
             }
 
+            try {
+                napi_callbback_methodTrueAddr = GlobalState.flatAPI.toAddr(getValueFromAddrWithPtrSize(napi_callbback_methodAddr.getOffset(), ptrSize));
+            } catch (MemoryAccessException e) {
+                throw new RuntimeException(e);
+            }
 
-
-
-
-
+            if(utf8nameStr != null && napi_callbback_methodTrueAddr != null) {
+                Logging.info("Find dynamic registered napi: " + utf8nameStr + " at 0x" + Long.toHexString(napi_callbback_methodTrueAddr.getOffset()));
+                MyGlobalState.dynRegNAPIList.add(new NAPIDescriptor(utf8nameStr, napi_callbback_methodTrueAddr));
+            }else{
+                Logging.warn("Failed to resolve NAPI descriptor at 0x"+Long.toHexString(base.getOffset()));
+            }
 
             index++;
         }

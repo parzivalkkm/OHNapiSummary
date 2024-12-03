@@ -14,10 +14,9 @@ public class Function implements Serializable {
     public String clazz;
     public String name;
     public String signature;
-    // TODO basicblock and control flow
-    // null for declaration
+
     List<Instruction> insts = new ArrayList<>();
-    // parsed from signature
+
     public List<Param> params = new ArrayList<>();
     public Type returnType;
     public String comment;
