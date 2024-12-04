@@ -16,6 +16,7 @@ import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.util.exception.CancelledException;
 import hust.cse.ohnapisummary.checkers.ModuleInitChecker;
+import hust.cse.ohnapisummary.mapping.NAPIJsonParser;
 import hust.cse.ohnapisummary.util.EnvSetup;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import org.apache.commons.lang3.StringUtils;
@@ -26,6 +27,7 @@ import java.io.FileReader;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class OHNapiSummary extends BinAbsInspector {
 
@@ -58,7 +60,7 @@ public class OHNapiSummary extends BinAbsInspector {
                 continue;
             }
             Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
-            runForModuleInitFunction(caller);
+            run4ModuleInitFunction(caller);
             break;
         }
 
@@ -73,12 +75,46 @@ public class OHNapiSummary extends BinAbsInspector {
         JsonReader reader = new JsonReader(new FileReader(jp));
         JsonObject arktsFuncInfoJson = new Gson().fromJson(reader, JsonObject.class);
 
+        NAPIJsonParser jsonParser = new NAPIJsonParser(this, this, EnvSetup.getModuleDataTypeManager(this, "node_api_all"));
+        ArrayList<Map.Entry<Function, hust.cse.ohnapisummary.ir.Function>> functionsToAnalyze = jsonParser.run(arktsFuncInfoJson);
+
+        for(int i=0;i<functionsToAnalyze.size();i++) {
+            Map.Entry<Function, hust.cse.ohnapisummary.ir.Function> e = functionsToAnalyze.get(i);
+            println("Analyzing " + e.getKey().getName());
+            long startOne = System.currentTimeMillis();
+            try {
+                // disable timeout if GUI mode.
+                // 分析对应的函数
+                run4OneFunction(e.getKey(), e.getValue(), !isRunningHeadless());
+            } catch (Exception exc) {
+                Logging.error("Failed to analyze: "+e.getKey().getName()+", ("+e.getKey().getEntryPoint()+")");
+                Logging.error(exc.getMessage());
+                continue;
+            }
+
+            if (getMonitor().isCancelled() || Thread.currentThread().isInterrupted()) {
+                Logging.warn("Run Cancelled.");
+                break;
+                // if cancelled, not add current func to statistics
+            }
+
+
+
+
+            long durationOne = System.currentTimeMillis() - startOne;
+            println("Analysis spent "+durationOne+" ms for "+e.getKey().getName());
+        }
+
+
+
+
+
         long duration = System.currentTimeMillis() - start;
 
         println("OHNapiSummary script execution time: " + duration + "ms.");
     }
 
-    private void runForModuleInitFunction(Function f) throws CancelledException {
+    private void run4ModuleInitFunction(Function f) throws CancelledException {
 
         GlobalState.reset();
 
@@ -132,6 +168,58 @@ public class OHNapiSummary extends BinAbsInspector {
         moduleInitChecker.check();
     }
 
+
+    private void run4OneFunction(Function f,hust.cse.ohnapisummary.ir.Function irFunc,boolean disableTimeot){
+        GlobalState.reset();
+        if (isRunningHeadless()) {
+            String allArgString = StringUtils.join(getScriptArgs()).strip();
+            GlobalState.config = Config.HeadlessParser.parseConfig(allArgString);
+        } else {
+            GlobalState.ghidraScript = this;
+            GlobalState.config = new Config();
+            GlobalState.config.setGUI(true); // TODO change
+            // change config here
+            GlobalState.config.setEnableZ3(false);
+        }
+//        GlobalState.config.setDebug(true);
+        GlobalState.config.clearCheckers();
+        GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
+        if (disableTimeot) {
+            GlobalState.config.setTimeout(-1);
+        }
+
+        if (!Logging.init()) {
+            return;
+        }
+        FunctionModelManager.initAll();
+        if (GlobalState.config.isEnableZ3() && !Utils.checkZ3Installation()) {
+            return;
+        }
+        Logging.info("Preparing the program");
+        if (!prepareProgram()) {
+            Logging.error("Failed to prepare the program");
+            return;
+        }
+        if (isRunningHeadless()) {
+            if (!Utils.registerExternalFunctionsConfig(GlobalState.currentProgram, GlobalState.config)) {
+                Logging.error("Failed to registerExternalFunctionsConfig, existing.");
+                return;
+            }
+        } else {
+            Utils.loadCustomExternalFunctionFromLabelHistory(GlobalState.currentProgram);
+        }
+        GlobalState.arch = new Architecture(GlobalState.currentProgram);
+
+        boolean success = analyze();
+        if (!success) {
+            Logging.error("Failed to analyze the program: no entrypoint.");
+            return;
+        }
+
+        // 分析完成后要用SummaryExporter输出生成的IR
+
+
+    }
 
     private List<Function> getRegisterFunctionAddress() throws MemoryAccessException {
         FunctionManager functionManager = currentProgram.getFunctionManager();

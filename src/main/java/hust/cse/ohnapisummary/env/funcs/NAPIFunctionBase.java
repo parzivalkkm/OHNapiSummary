@@ -18,9 +18,37 @@ public class NAPIFunctionBase extends ExternalFunctionBase {
     public static Address currentCallSite;
 
     private static final Set<String> staticSymbols = Set.of(
+            // 注册相关函数
             "napi_define_properties",
-            "napi_module_register"
-//            "napi_get_value_double"
+            "napi_module_register",
+            // 参数读取相关函数
+            "napi_get_cb_info",
+            // 值的get
+//            "napi_get_undefined",
+//            "napi_get_null",
+//            "napi_get_boolean",
+//            "napi_get_global",
+
+            "napi_get_value_double",
+            "napi_get_value_int32",
+            "napi_get_value_uint32",
+            "napi_get_value_int64",
+            "napi_get_value_bool",
+            // 值的create
+            "napi_create_double",
+            "napi_create_int32",
+            "napi_create_uint32",
+            "napi_create_int64",
+
+            // string的get
+            "napi_get_value_string_latin1",
+            "napi_get_value_string_utf8",
+            "napi_get_value_string_utf16",
+
+            // string的create
+            "napi_create_string_latin1",
+            "napi_create_string_utf8",
+            "napi_create_string_utf16"
     );
 
     public NAPIFunctionBase() {
@@ -50,7 +78,29 @@ public class NAPIFunctionBase extends ExternalFunctionBase {
             NAPIValue nv = recordCall(context, calleeFunc);
         } else if (funcName.equals("napi_module_register")) {
 
+        } else if (funcName.equals("napi_get_cb_info")) {
+
+
+            // 获取 napi_value
+        } else if (funcName.equals("napi_get_value_double")) {
+            NAPIValue nv = recordCall(context, calleeFunc);
+        } else if (funcName.equals("napi_get_value_int32")) {
+
+        } else if (funcName.equals("napi_get_value_uint32")) {
+
+        } else if (funcName.equals("napi_get_value_int64")) {
+
+        } else if (funcName.equals("napi_get_value_bool")) {
+
+            // 创建 napi_value
+        } else if (funcName.equals("napi_create_double")) {
+            NAPIValue nv = recordCall(context, calleeFunc);
+        } else if (funcName.equals("napi_create_int32")) {
+
+        } else if (funcName.equals("napi_create_uint32")) {
+
         }
+
 
         if (ret != null) {
             inOutEnv.set(retALoc, ret, true);
