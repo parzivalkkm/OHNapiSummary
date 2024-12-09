@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 public class Module implements Serializable {
-    public String apk_name;
+    public String hap_name;
     public String so_name;
     public int defaultPointSize;
     public List<Function> funcs = new ArrayList<>();
@@ -15,8 +15,8 @@ public class Module implements Serializable {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        if (apk_name != null) {
-            sb.append("source_filename = \"").append(apk_name).append("\"\n");
+        if (hap_name != null) {
+            sb.append("source_filename = \"").append(hap_name).append("\"\n");
         }
         if (so_name != null) {
             sb.append("native_object_filename = \"").append(so_name).append("\"\n");
