@@ -170,6 +170,9 @@ public class OHNapiSummary extends BinAbsInspector {
 
 
     private void run4OneFunction(Function f,hust.cse.ohnapisummary.ir.Function irFunc,boolean disableTimeot){
+        // TODO: MyglobalState.onStartOne(f, irFunc);
+        MyGlobalState.onStartOne(f, irFunc);
+
         GlobalState.reset();
         if (isRunningHeadless()) {
             String allArgString = StringUtils.join(getScriptArgs()).strip();
@@ -217,7 +220,8 @@ public class OHNapiSummary extends BinAbsInspector {
         }
 
         // 分析完成后要用SummaryExporter输出生成的IR
-
+        // TODO: MyGlobalState.onFinishOne();
+        MyGlobalState.onFinishOne();
 
     }
 

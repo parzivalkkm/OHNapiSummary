@@ -2,6 +2,7 @@ package hust.cse.ohnapisummary.util;
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.flatapi.FlatProgramAPI;
+import ghidra.program.model.listing.Function;
 import ghidra.util.task.TaskMonitor;
 import hust.cse.ohnapisummary.mapping.NAPIDescriptor;
 import hust.cse.ohnapisummary.mapping.NAPIMapping;
@@ -26,6 +27,8 @@ public class MyGlobalState {
     public static boolean isTaskTimeout = false;
 
     // 以下的field用于存储一些需要全局记录的信息
+    public static Function currentFunction;
+
     public static NAPICallManager napiManager;
 
     public static ArrayList<NAPIDescriptor> dynRegNAPIList = new ArrayList<>();
@@ -48,4 +51,12 @@ public class MyGlobalState {
         isTaskTimeout = false;
     }
 
+    // 在analyze具体的一个函数之前调用
+    public static void onStartOne(Function f, hust.cse.ohnapisummary.ir.Function irFunc) {
+
+    }
+
+    // 在analyze具体的一个函数之后调用，启动SummaryExporter输出IP
+    public static void onFinishOne() {
+    }
 }

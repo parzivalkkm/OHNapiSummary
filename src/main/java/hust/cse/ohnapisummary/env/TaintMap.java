@@ -3,7 +3,9 @@ package hust.cse.ohnapisummary.env;
 import com.bai.util.Logging;
 import hust.cse.ohnapisummary.util.NAPIValue;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TaintMap {
@@ -34,6 +36,22 @@ public class TaintMap {
         id = taintId;
         taintId++;
         return id;
+    }
+
+    /**
+     * Get the corresponding taint sources for a given taint bitmap
+     * @param taints A given taint bitmap
+     * @return A list of corresponding taint sources
+     */
+    public static List<NAPIValue> getTaintSourceList(long taints) {
+        ArrayList<NAPIValue> res = new ArrayList<>();
+        for (Map.Entry<NAPIValue, Integer> entry : taintSourceToIdMap.entrySet()) {
+            int taintId = entry.getValue();
+            if (((taints >>> taintId) & 1) == 1) {
+                res.add(entry.getKey());
+            }
+        }
+        return res;
     }
 
     public static long getTaints(NAPIValue napiValue) {

@@ -31,6 +31,10 @@ public class NAPIValue {
         this.callsite = callsite;
     }
 
+    public boolean isParamValue() {
+        return nvt == NAPIValueType.PARAM;
+    }
+
     public Function getApi() {
         if (nvt != NAPIValueType.FUNC_CALL) {
             throw new RuntimeException("NAPIValue is not a function call");

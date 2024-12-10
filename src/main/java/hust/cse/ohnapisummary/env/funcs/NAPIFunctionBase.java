@@ -5,6 +5,7 @@ import com.bai.env.AbsEnv;
 import com.bai.env.Context;
 import com.bai.env.KSet;
 import com.bai.env.funcs.externalfuncs.ExternalFunctionBase;
+import com.bai.env.region.Heap;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
@@ -67,6 +68,12 @@ public class NAPIFunctionBase extends ExternalFunctionBase {
         NAPIValue nv = new NAPIValue(ctx, api, currentCallSite.getOffset());
         MyGlobalState.napiManager.registerCall(nv, ctx);
         return nv;
+    }
+
+    public static NAPIValue recordAllocCall(Context context, Function callFunc, Heap heap) {
+        NAPIValue jcs = recordCall(context, callFunc);
+        MyGlobalState.napiManager.heapMap.put(heap, jcs);
+        return jcs;
     }
 
     @Override

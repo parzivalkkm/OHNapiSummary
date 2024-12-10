@@ -13,6 +13,8 @@ import ghidra.program.model.data.IntegerDataType;
 import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
+import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Set;
@@ -55,6 +57,12 @@ public class CallocFunction extends ExternalFunctionBase {
         Address allocAddress = getAddress(pcode);
         KSet resKSet = new KSet(retALoc.getLen() * 8);
         Heap allocChunk = Heap.getHeap(allocAddress, context, size, true);
+
+
+        // record to summary ir
+        NAPIFunctionBase.recordAllocCall(context, callFunc, allocChunk);
+
+
         resKSet = resKSet.insert(AbsVal.getPtr(allocChunk));
         inOutEnv.set(retALoc, resKSet, true);
     }
