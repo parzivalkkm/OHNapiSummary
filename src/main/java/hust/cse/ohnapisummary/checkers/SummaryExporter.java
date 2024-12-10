@@ -10,22 +10,19 @@ import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.VoidDataType;
 import ghidra.program.model.listing.*;
 import hust.cse.ohnapisummary.ir.Module;
+import hust.cse.ohnapisummary.ir.NumValueNamer;
 import hust.cse.ohnapisummary.ir.inst.Call;
 import hust.cse.ohnapisummary.ir.inst.Phi;
 import hust.cse.ohnapisummary.ir.inst.Ret;
 import hust.cse.ohnapisummary.ir.utils.Use;
 import hust.cse.ohnapisummary.ir.utils.Value;
 import hust.cse.ohnapisummary.ir.value.Top;
-import hust.cse.ohnapisummary.ir.value.Null;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
 
 import hust.cse.ohnapisummary.env.TaintMap;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.util.*;
 
 public class SummaryExporter extends CheckerBase {
     Module module = new Module();
@@ -33,12 +30,22 @@ public class SummaryExporter extends CheckerBase {
 
     Map<NAPIValue, Value> napiValue_Value_Map;
 
+    public SummaryExporter() {
+        super("", "");
+    }
 
+    public void onStartFunc(hust.cse.ohnapisummary.ir.Function irFunc) {
+        currentIrFunction = irFunc;
+        napiValue_Value_Map = new HashMap<>();
+    }
 
+    public void onFinishFunc() {
+        new NumValueNamer().visitFunc(currentIrFunction);
+        module.funcs.add(currentIrFunction);
 
+        currentIrFunction = null;
 
-    public SummaryExporter(String cwe, String version) {
-        super(cwe, version);
+        napiValue_Value_Map = null;
     }
 
 
@@ -156,6 +163,7 @@ public class SummaryExporter extends CheckerBase {
         if (target == null) {
             return false;
         }
+        // TODO: 要做出对应更改
         if (target.equals("__vsprintf_chk")) {
             return true;
         }

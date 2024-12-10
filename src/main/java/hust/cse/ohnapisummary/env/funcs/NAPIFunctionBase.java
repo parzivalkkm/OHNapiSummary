@@ -10,6 +10,7 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
 import hust.cse.ohnapisummary.util.MyGlobalState;
+import hust.cse.ohnapisummary.util.NAPICallManager;
 import hust.cse.ohnapisummary.util.NAPIValue;
 
 import java.util.Set;
@@ -87,25 +88,12 @@ public class NAPIFunctionBase extends ExternalFunctionBase {
 
         } else if (funcName.equals("napi_get_cb_info")) {
 
-
-            // 获取 napi_value
         } else if (funcName.equals("napi_get_value_double")) {
             NAPIValue nv = recordCall(context, calleeFunc);
-        } else if (funcName.equals("napi_get_value_int32")) {
-
-        } else if (funcName.equals("napi_get_value_uint32")) {
-
-        } else if (funcName.equals("napi_get_value_int64")) {
-
-        } else if (funcName.equals("napi_get_value_bool")) {
-
-            // 创建 napi_value
+            // TODO: 对污染进行建模
+            ret = null;
         } else if (funcName.equals("napi_create_double")) {
             NAPIValue nv = recordCall(context, calleeFunc);
-        } else if (funcName.equals("napi_create_int32")) {
-
-        } else if (funcName.equals("napi_create_uint32")) {
-
         }
 
 

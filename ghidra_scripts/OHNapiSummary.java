@@ -35,13 +35,15 @@ public class OHNapiSummary extends BinAbsInspector {
     public void run() throws Exception {
         long start = System.currentTimeMillis();
 
-        MyGlobalState.reset(this);
+
         new EnvSetup(getCurrentProgram(), this, getState(), this).run();
 
         GlobalState.ghidraScript = this;
         GlobalState.config = new Config();
         GlobalState.currentProgram = getCurrentProgram();
         GlobalState.flatAPI = this;
+
+        MyGlobalState.reset(this);
 
         if (!Logging.init()) {
             return;
@@ -99,13 +101,9 @@ public class OHNapiSummary extends BinAbsInspector {
             }
 
 
-
-
             long durationOne = System.currentTimeMillis() - startOne;
             println("Analysis spent "+durationOne+" ms for "+e.getKey().getName());
         }
-
-
 
 
 
@@ -172,7 +170,6 @@ public class OHNapiSummary extends BinAbsInspector {
     private void run4OneFunction(Function f,hust.cse.ohnapisummary.ir.Function irFunc,boolean disableTimeot){
         // TODO: MyglobalState.onStartOne(f, irFunc);
         MyGlobalState.onStartOne(f, irFunc);
-
         GlobalState.reset();
         if (isRunningHeadless()) {
             String allArgString = StringUtils.join(getScriptArgs()).strip();

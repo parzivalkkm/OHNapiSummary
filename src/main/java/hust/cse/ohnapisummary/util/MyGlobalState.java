@@ -4,6 +4,7 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.flatapi.FlatProgramAPI;
 import ghidra.program.model.listing.Function;
 import ghidra.util.task.TaskMonitor;
+import hust.cse.ohnapisummary.checkers.SummaryExporter;
 import hust.cse.ohnapisummary.mapping.NAPIDescriptor;
 import hust.cse.ohnapisummary.mapping.NAPIMapping;
 
@@ -35,11 +36,14 @@ public class MyGlobalState {
 
     public static ArrayList<NAPIMapping> napiMappingList = new ArrayList<>();
 
+    public static SummaryExporter se;
+
 
     public static void reset(GhidraScript main) {
         flatapi = main;
         defaultPointerSize = main.getCurrentProgram().getDefaultPointerSize();
         napiManager = new NAPICallManager();
+        se = new SummaryExporter();
         try {
             decom = new DecompilerCache(main.getState());
         } catch (RuntimeException e) {
@@ -53,10 +57,14 @@ public class MyGlobalState {
 
     // 在analyze具体的一个函数之前调用
     public static void onStartOne(Function f, hust.cse.ohnapisummary.ir.Function irFunc) {
-
+        currentFunction = f;
+        se.onStartFunc(irFunc);
+        isTaskTimeout = false;
     }
 
     // 在analyze具体的一个函数之后调用，启动SummaryExporter输出IP
     public static void onFinishOne() {
+        se.check();
+        se.onFinishFunc();
     }
 }
