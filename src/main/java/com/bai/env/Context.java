@@ -271,6 +271,7 @@ public class Context {
         AbsEnv env = new AbsEnv(caller);
         updateSP(env);
         if (isMain) {
+            // TODO: 此处要进行更改
             prepareMainAbsEnv(env, callee);
         }
         AbsEnv oldInit = getValueBefore(entry);

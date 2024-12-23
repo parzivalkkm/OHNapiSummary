@@ -39,7 +39,7 @@ public class ModuleInitChecker extends CheckerBase {
 
     @Override
     public boolean check() {
-        for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callSites.entrySet()) {
+        for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callsOrValues.entrySet()) {
             NAPIValue napiValue = entry.getKey();
             Context context = entry.getValue();
             long callSite = napiValue.callsite;

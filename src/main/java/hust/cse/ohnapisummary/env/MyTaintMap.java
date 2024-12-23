@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TaintMap {
+public class MyTaintMap {
     private static int taintId = 0;
     private static final int MAX_TAINT_CNT = 64;
     private static final Map<NAPIValue, Integer> taintSourceToIdMap = new HashMap<>();

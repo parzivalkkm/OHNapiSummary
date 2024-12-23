@@ -30,7 +30,7 @@ public class MyGlobalState {
     // 以下的field用于存储一些需要全局记录的信息
     public static Function currentFunction;
 
-    public static NAPICallManager napiManager;
+    public static NAPIValueManager napiManager;
 
     public static ArrayList<NAPIDescriptor> dynRegNAPIList = new ArrayList<>();
 
@@ -42,7 +42,7 @@ public class MyGlobalState {
     public static void reset(GhidraScript main) {
         flatapi = main;
         defaultPointerSize = main.getCurrentProgram().getDefaultPointerSize();
-        napiManager = new NAPICallManager();
+        napiManager = new NAPIValueManager();
         se = new SummaryExporter();
         try {
             decom = new DecompilerCache(main.getState());
@@ -57,6 +57,7 @@ public class MyGlobalState {
 
     // 在analyze具体的一个函数之前调用
     public static void onStartOne(Function f, hust.cse.ohnapisummary.ir.Function irFunc) {
+        napiManager = new NAPIValueManager(); // TODO: 这里要不要继承前一个的性质？
         currentFunction = f;
         se.onStartFunc(irFunc);
         isTaskTimeout = false;

@@ -12,18 +12,17 @@ public class NAPIValue {
         PARAM,
         FUNC_CALL
     };
-    NAPIValueType nvt;
+    NAPIValueType napiValueType;
+
+    public boolean isParamValue() {
+        return napiValueType == NAPIValueType.PARAM;
+    }
 
     public long callsite;
 
-    Function api = null;
-    int paramIndex = -1;
-
-    public static final String PARAM_PREFIX = "Param";
-    public long[] callstring = new long[GlobalState.config.getCallStringK()];
-
-    public NAPIValue(Context ctx, Function api, long callsite) {
-        this.nvt = NAPIValueType.FUNC_CALL;
+    Function api = null;   // NAPI调用类型（FUNC_CALL）时的属性
+    public NAPIValue(Context ctx, Function api, long callsite) { // NAPI调用类型的Constructor
+        this.napiValueType = NAPIValueType.FUNC_CALL;
         this.api = api;
         if (ctx != null) {
             System.arraycopy(ctx.getCallString(), 0, this.callstring, 0, GlobalState.config.getCallStringK());
@@ -31,19 +30,28 @@ public class NAPIValue {
         this.callsite = callsite;
     }
 
-    public boolean isParamValue() {
-        return nvt == NAPIValueType.PARAM;
-    }
-
     public Function getApi() {
-        if (nvt != NAPIValueType.FUNC_CALL) {
+        if (napiValueType != NAPIValueType.FUNC_CALL) {
             throw new RuntimeException("NAPIValue is not a function call");
         }
         return api;
     }
 
+
+    int paramIndex = -1;   // 参数类型（PARAM）时的属性
+
+
+
+    public static final String PARAM_PREFIX = "Param";
+    public long[] callstring = new long[GlobalState.config.getCallStringK()];
+
+    public NAPIValue(int index) { // 参数类型的Constructor
+        this.napiValueType = NAPIValueType.PARAM;
+        this.paramIndex = index;
+    }
+
     public int getParamIndex() {
-        if (nvt != NAPIValueType.PARAM) {
+        if (napiValueType != NAPIValueType.PARAM) {
             throw new RuntimeException("NAPIValue is not a parameter");
         }
         return paramIndex;
@@ -54,13 +62,13 @@ public class NAPIValue {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         NAPIValue napiValue = (NAPIValue) o;
-        return paramIndex == napiValue.paramIndex && callsite == napiValue.callsite && nvt == napiValue.nvt
+        return paramIndex == napiValue.paramIndex && callsite == napiValue.callsite && napiValueType == napiValue.napiValueType
             && Objects.equals(api, napiValue.api) && Arrays.equals(callstring, napiValue.callstring);
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(nvt, api, paramIndex, callsite);
+        int result = Objects.hash(napiValueType, api, paramIndex, callsite);
         result = 31 * result + Arrays.hashCode(callstring);
         return result;
     }
