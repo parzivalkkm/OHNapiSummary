@@ -11,9 +11,25 @@ import com.bai.util.Utils;
 import com.sun.jna.platform.win32.WinDef;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.Parameter;
+import ghidra.program.model.mem.Memory;
+import ghidra.program.model.mem.MemoryAccessException;
+import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.Reference;
+import hust.cse.ohnapisummary.util.MyGlobalState;
+import hust.cse.ohnapisummary.util.NAPIValue;
+import org.python.antlr.op.Add;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 
 public class RegisterChecker  extends CheckerBase {
@@ -21,35 +37,51 @@ public class RegisterChecker  extends CheckerBase {
         super(cwe, version);
     }
 
-    public Function moduleRegisterFunc;
-
-    public Function trueRegisterFunction;
 
     @Override
     public boolean check() {
-        Logging.info("Checking RegisterChecker");
-        List<Reference> references = Utils.getReferences(List.of("napi_module_register"));
-        for (Reference reference : references) {
-            Address toAddress = reference.getToAddress();
-            Address fromAddress = reference.getFromAddress();
-            Function callee = GlobalState.flatAPI.getFunctionAt(toAddress);
-            Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
-            if (callee == null || caller == null) {
-                continue;
-            }
-            Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
-
-            Logging.info("size: " + Context.getContext(caller).size());
-            for (Context context : Context.getContext(caller)) {
-                AbsEnv absEnv = context.getAbsEnvIn().get(fromAddress);
-                if (absEnv == null) {
+        for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callsOrValues.entrySet()) {
+            if (entry.getKey().isRegisterFunction()) {
+                NAPIValue napiValue = entry.getKey();
+                Context context = entry.getValue();
+                long callSite = napiValue.callsite;
+                Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSite));
+                Logging.info("Checking Module Register Function" + caller.getName());
+                Function callee = napiValue.getApi();
+                if (callee == null) {
+                    Logging.error("Cannot find called external function for 0x" + Long.toHexString(callSite));
                     continue;
                 }
-                Address trueRegisterFunctionAddress = getTrueRegisterFunctionAddress(absEnv, callee);
-                if (trueRegisterFunctionAddress != null) {
-                    trueRegisterFunction = GlobalState.flatAPI.getFunctionAt(trueRegisterFunctionAddress);
-                    return true;
+
+                Parameter[] params = callee.getParameters();
+                if (params.length != 1) {
+                    Logging.error("Module Register Function should have only one parameter");
+                    continue;
                 }
+
+                Context tempContext = Context.getContext(caller).iterator().next();
+
+                AbsEnv absEnv = tempContext.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
+                if (absEnv == null) {
+                    Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
+                    continue;
+                }
+
+                // 解析函数的第0个参数
+                KSet moduleStructKSet = getParamKSet(callee, 0, absEnv);
+                if (!moduleStructKSet.isNormal()) {
+                    Logging.error("moduleStructKSet is not normal");
+                    continue;
+                }
+                if (!moduleStructKSet.isSingleton()) {
+                    Logging.error("moduleStructKSet is not singleton");
+                    continue;
+                }
+                AbsVal moduleStructAbsVal = moduleStructKSet.iterator().next();
+                Logging.info("moduleStructPtr: " + moduleStructAbsVal.getValue());
+
+                // 解析moduleStruct
+                resolverModuleStruct(moduleStructAbsVal.getValue());
             }
         }
 
@@ -61,24 +93,107 @@ public class RegisterChecker  extends CheckerBase {
 
 
 
-    private Address getTrueRegisterFunctionAddress(AbsEnv absEnv, Function callee) {
-        String name = callee.getName();
-        if (callee.getParameterCount() < 1) {
-            // Skip the call since Ghidra didn't detect suitable number of arguments
-            Logging.debug("Not enough parameters for \"" + name + "()\" function");
+    private void resolverModuleStruct(long ptr) {
+        Address base = GlobalState.flatAPI.toAddr(ptr);
+        int ptrSize = MyGlobalState.defaultPointerSize;
+        /*
+        static napi_module demoModule = {
+            .nm_version = 1,                 // 4 Bytes
+            .nm_flags = 0,                   // 4 Bytes
+            .nm_filename = nullptr,          // 8 Bytes
+            .nm_register_func = Init,
+            .nm_modname = "entry",
+            .nm_priv = ((void*)0),
+            .reserved = { 0 },
+        };
+         */
+        Address initFuncAddr = base.add(ptrSize * 2);
+        Address moduleNameStrAddr = base.add(ptrSize * 3);
+
+
+        Address initFuncTrueAddr = null;
+        try {
+            long initFuncAddrValue = getValueFromAddrWithPtrSize(initFuncAddr.getOffset(), ptrSize);
+            initFuncTrueAddr = GlobalState.flatAPI.toAddr(initFuncAddrValue);
+        } catch (MemoryAccessException e) {
+            Logging.error("Cannot get initFuncAddrValue");
+        }
+        Logging.info("Init Function Addr: " + initFuncTrueAddr);
+        // 获取Function并保存到MyGlobalState
+        Function initFunc = GlobalState.flatAPI.getFunctionAt(initFuncTrueAddr);
+        if (initFunc == null) {
+            Logging.error("Cannot find initFunc at 0x" + Long.toHexString(initFuncTrueAddr.getOffset()));
+        } else {
+            Logging.info("Init Function: " + initFunc.getName());
+        }
+        MyGlobalState.moduleInitFunc = initFunc;
+
+        Address moduleNameStrTrueAddr = null;
+        try {
+            long moduleNameStrAddrValue = getValueFromAddrWithPtrSize(moduleNameStrAddr.getOffset(), ptrSize);
+            moduleNameStrTrueAddr = GlobalState.flatAPI.toAddr(moduleNameStrAddrValue);
+        } catch (MemoryAccessException e) {
+            Logging.error("Cannot get moduleNameStrAddrValue");
+        }
+        Logging.info("Module Name Addr: " + moduleNameStrTrueAddr);
+
+        String moduleName = getStrFromAddr(moduleNameStrTrueAddr.getOffset());
+        MyGlobalState.moduleName = moduleName;
+        Logging.info("Module Name: " + moduleName);
+
+
+    }
+
+    private long getValueFromAddrWithPtrSize(long addr, int ptrSize) throws MemoryAccessException {
+        Memory memory = GlobalState.currentProgram.getMemory();
+        if (ptrSize == 4) {
+            return memory.getInt(GlobalState.flatAPI.toAddr(addr));
+        } else if (ptrSize == 8) {
+            return memory.getLong(GlobalState.flatAPI.toAddr(addr));
+        } else {
+            Logging.error("Unknown ptrSize: " + ptrSize);
+            return 0;
+        }
+    }
+
+    private String getStrFromAddr(long addr) {
+        byte[] bs = null;
+        try {
+            bs = getStringFromMemory(GlobalState.flatAPI.toAddr(addr));
+        } catch (MemoryAccessException e) {
+            Logging.error("Char* decode failed! 0x"+Long.toHexString(addr));
             return null;
         }
-        KSet argKSet = getParamKSet(callee, 0, absEnv);
-        Logging.info("KSet for argument: " + argKSet);
-
-        for (AbsVal argAbsVal : argKSet) {
-            Logging.info("Argument: " + argAbsVal);
-
+        if (bs == null) {
+            return null;
         }
-//        Address moduleStructAddr = GlobalState.flatAPI.toAddr(argAbsVal.getValue());
-//        // 真正的注册函数地址在 module 结构体的第三个字段，即+0x10 处
-//        Address thirdFieldAddr = moduleStructAddr.add(0x10);
-//        Address trueRegisterFunctionAddress = GlobalState.flatAPI.toAddr(String.valueOf(thirdFieldAddr));
-        return null;
+        String s;
+        try {
+            Charset csets = StandardCharsets.UTF_8;
+            CharsetDecoder cd = csets.newDecoder();
+            CharBuffer r = cd.decode(ByteBuffer.wrap(bs));
+            s = r.toString();
+        } catch (CharacterCodingException e) {
+            s = Arrays.toString(bs);
+        }
+        return s;
+    }
+
+    public static byte[] getStringFromMemory(Address addr) throws MemoryAccessException {
+        MemoryBlock mb = GlobalState.currentProgram.getMemory().getBlock(addr);
+        if (mb == null) {
+            Logging.error("Cannot decode string at 0x"+addr.toString());
+            return null;
+        }
+        if (mb.isWrite()) {
+            Logging.error("Constant str not from readonly section!");
+        }
+        StringBuilder sb = new StringBuilder();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        while(mb.getByte(addr) != 0) {
+            out.write(mb.getByte(addr));
+            addr = addr.add(1);
+        }
+        return out.toByteArray();
     }
 }

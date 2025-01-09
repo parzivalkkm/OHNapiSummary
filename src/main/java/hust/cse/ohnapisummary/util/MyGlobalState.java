@@ -1,14 +1,23 @@
 package hust.cse.ohnapisummary.util;
 
+import com.bai.env.*;
+import com.bai.env.funcs.externalfuncs.ExternalFunctionBase;
+import com.bai.util.Logging;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.flatapi.FlatProgramAPI;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.data.DataType;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.Parameter;
 import ghidra.util.task.TaskMonitor;
 import hust.cse.ohnapisummary.checkers.SummaryExporter;
+import hust.cse.ohnapisummary.env.MyTaintMap;
 import hust.cse.ohnapisummary.mapping.NAPIDescriptor;
 import hust.cse.ohnapisummary.mapping.NAPIMapping;
+import org.python.antlr.op.Add;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class MyGlobalState {
 
@@ -37,6 +46,10 @@ public class MyGlobalState {
     public static ArrayList<NAPIMapping> napiMappingList = new ArrayList<>();
 
     public static SummaryExporter se;
+
+    // 以下记录Module的信息
+    public static String moduleName;
+    public static Function moduleInitFunc;
 
 
     public static void reset(GhidraScript main) {
@@ -68,4 +81,5 @@ public class MyGlobalState {
         se.check();
         se.onFinishFunc();
     }
+
 }

@@ -1161,3 +1161,14 @@ NAPI_EXTERN napi_status napi_call_threadsafe_function_with_priority(napi_threads
                                                                     void *data,
                                                                     napi_task_priority priority,
                                                                     bool isTail);
+
+typedef struct napi_module {
+  int nm_version;
+  unsigned int nm_flags;
+  const char* nm_filename;
+  void* nm_register_func;
+  const char* nm_modname;
+  void* nm_priv;
+  void* reserved[4];
+} napi_module;
+NAPI_EXTERN void napi_module_register(napi_module* mod);
