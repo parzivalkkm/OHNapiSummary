@@ -33,9 +33,10 @@ public class ModuleInitChecker extends CheckerBase {
         super(cwe, version);
     }
 
-
-    Reference reference = null;
-
+    // 用于记录函数地址和对应的napi_value的映射
+    private Map<Long, Long> valueToFunctionPointerMap;
+    // 用于记录函数名和对应的napi_value的映射
+    private Map<Long, String> valueToFunctionNameMap;
 
     @Override
     public boolean check() {
@@ -44,51 +45,130 @@ public class ModuleInitChecker extends CheckerBase {
             Context context = entry.getValue();
             long callSite = napiValue.callsite;
             Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSite));
-            Logging.info("Checking ModuleInit Function" + caller.getName());
             Function callee = napiValue.getApi();
             if (callee == null) {
                 Logging.error("Cannot find called external function for 0x" + Long.toHexString(callSite));
                 continue;
             }
 
-            Parameter[] params = callee.getParameters();
+            String calleeName = callee.getName();
 
-            AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
-            if (absEnv == null) {
-                Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
-                continue;
+            if (calleeName.equals("napi_define_properties")) {
+                Logging.info("Checking Module Register Function" + caller.getName());
+
+                AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
+                if (absEnv == null) {
+                    Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
+                    continue;
+                }
+
+                // 解析napi_define_properties的第三个参数,即napi_property_descriptor数组的长度
+                KSet sizeKSet = getParamKSet(callee, 2, absEnv);
+                long size = 0;
+                for (AbsVal absVal : sizeKSet) {
+                    if (absVal.getRegion().isGlobal()) {
+                        size = absVal.getValue();
+                    }
+                }
+                Logging.info("size of descriptors is: " + size);
+
+                directlyResolveDyRegFromMemcpyParam(caller, (int) size);
+
+            } else if (calleeName.equals("napi_set_named_property")) {
+                // 注册形如：
+                // static napi_value Init(napi_env env, napi_value exports) {
+                //    napi_value fn = nullptr;
+                //    napi_create_function(env, nullptr, 0, CalculateArea, nullptr, &fn);
+                //    napi_set_named_property(env, exports, "calculateArea", fn);
+                //    return exports;
+                //}
+                Logging.info("Checking Function" + caller.getName());
+                // TODO: 解析napi_set_named_property的第三、四个参数
+                AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
+                if (absEnv == null) {
+                    Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
+                    continue;
+                }
+
+                // 解析napi_set_named_property的第三个参数，即属性名
+                KSet nameKSet = getParamKSet(callee, 2, absEnv);
+                String name = null;
+                for (AbsVal absVal : nameKSet) {
+                    if (absVal.getRegion().isGlobal()) {
+                        name = decodeStr(absEnv, absVal);
+                    }else{
+                        Logging.error("name is not global.");
+                    }
+                }
+
+                // 解析napi_set_named_property的第四个参数，即属性值
+                KSet valueKSet = getParamKSet(callee, 3, absEnv);
+                long value = 0;
+                for (AbsVal absVal : valueKSet) {
+                    if (absVal.getRegion().isGlobal()) {
+                        value = absVal.getValue();
+                    }
+                }
+                Logging.info("name of property is: " + name);
+
+                if (name != null && value != 0) {
+                    valueToFunctionNameMap.put(value, name);
+                }
+
+
+            } else if (calleeName.equals("napi_create_function")) {
+                // 注册形如：
+                // static napi_value Init(napi_env env, napi_value exports) {
+                //    napi_value fn = nullptr;
+                //    napi_create_function(env, nullptr, 0, CalculateArea, nullptr, &fn);
+                //    napi_set_named_property(env, exports, "calculateArea", fn);
+                //    return exports;
+                //}
+                Logging.info("Checking Function" + caller.getName());
+
+                AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
+                if (absEnv == null) {
+                    Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
+                    continue;
+                }
+
+                // 解析napi_create_function的第四个参数，即函数指针
+                KSet funcPtrKSet = getParamKSet(callee, 3, absEnv);
+                long funcPtr = 0;
+                for (AbsVal absVal : funcPtrKSet) {
+                    if (absVal.getRegion().isGlobal()) {
+                        funcPtr = absVal.getValue();
+                    }
+                }
+                Logging.info("function pointer is: " + funcPtr);
+
+                // 解析napi_create_function的第六个参数，即napi_value指针
+                KSet valueKSet = getParamKSet(callee, 5, absEnv);
+                long value = 0;
+                for (AbsVal absVal : valueKSet) {
+                    if (absVal.getRegion().isGlobal()) {
+                        value = absVal.getValue();
+                    }
+                }
+                Logging.info("napi_value pointer is: " + value);
+
+                if (funcPtr != 0 && value != 0) {
+                    valueToFunctionPointerMap.put(value, funcPtr);
+                }
+
             }
 
-            // 解析napi_define_properties的第三个参数,即napi_property_descriptor数组的长度
-            KSet sizeKSet = getParamKSet(callee, 2, absEnv);
-            long size = 0;
-            for (AbsVal absVal : sizeKSet) {
-                if (absVal.getRegion().isGlobal()) {
-                    size = absVal.getValue();
+            // 处理第二种方式注册的函数
+            // 遍历valueToFunctionPointerMap以及valueToFunctionNameMap，将其解析为NAPIDescriptor
+            for(Map.Entry<Long, Long> entry1 : valueToFunctionPointerMap.entrySet()){
+                long value = entry1.getKey();
+                long funcPtr = entry1.getValue();
+                if (valueToFunctionNameMap.containsKey(value)) {
+                    String name = valueToFunctionNameMap.get(value);
+                    Logging.info("Find dynamic registered napi: " + name + " at 0x" + Long.toHexString(funcPtr));
+                    MyGlobalState.dynRegNAPIList.add(new NAPIDescriptor(name, GlobalState.flatAPI.toAddr(funcPtr)));
                 }
             }
-            Logging.info("size of descriptors is: " + size);
-
-            directlyResolveDyRegFromMemcpyParam(caller, (int) size);
-
-            // 解析napi_define_properties的第四个参数,即napi_property_descriptor数组的指针，因为是local最终以失败告终
-//            Parameter descriptorParam = callee.getParameter(3);
-//            KSet descriptorKSet =  getParamKSet(callee, 3, absEnv);
-
-            // handle RegisterNatives.
-//            if (descriptorParam.getDataType().getName().equals("napi_property_descriptor *")) {
-//                for (AbsVal val: descriptorKSet) {
-//                    if (val.getRegion().isGlobal()) {
-//                        Logging.info("Global region: " + val);
-//                    } else {
-//                        Logging.info("Not global region: " + val);
-//                    }
-//                    printALocBits(val, absEnv, (int) (size * 8));
-//                    resolveNAPIDescriptorAt(val, absEnv);
-//
-//                }
-//
-//            }
 
 
         }
@@ -188,79 +268,6 @@ public class ModuleInitChecker extends CheckerBase {
         }
     }
 
-    private void printALocBits(AbsVal ptr, AbsEnv env,int size) {
-        ALoc ptrALoc = ALoc.getALoc(ptr.getRegion(), ptr.getValue(), 1);
-        if (ptrALoc.isGlobalReadable()) {
-            String str = StringUtils.getStringFromProgramData(GlobalState.flatAPI.toAddr(ptr.getValue()));
-            if (str == null) {
-                Logging.error("Failed to get string from 0x"+Long.toHexString(ptr.getValue()));
-                return;
-            }
-            byte[] tmp = str.getBytes();
-            byte[] bytes = new byte[Math.min(str.length(), size) + 1];
-            // 将bytes转化为16进制字符串然后输出
-            for (int i = 0; i < bytes.length; i++) {
-                bytes[i] = tmp[i];
-            }
-            String hex = "";
-            for (byte b : bytes) {
-                hex += String.format("%02X", b);
-            }
-            Logging.info("0x"+Long.toHexString(ptr.getValue()) + " : " + hex);
-
-        }else{
-            Logging.error("Cannot read from 0x"+Long.toHexString(ptr.getValue()));
-        }
-    }
-
-
-    private void resolveNAPIDescriptorAt(AbsVal ptr, AbsEnv env) {
-        boolean failed = false;
-        int index = 0;
-        int ptrSize = MyGlobalState.defaultPointerSize;
-
-        int structSize = ptrSize*8;
-        while(!failed) {
-            long base = ptr.getValue() + index * structSize;
-            Logging.info("Resolving NAPI descriptor at 0x"+Long.toHexString(base));
-            ALoc utf8name = ALoc.getALoc(ptr.getRegion(), base + ptrSize*0, ptrSize);
-            ALoc napi_value_name = ALoc.getALoc(ptr.getRegion(), base + ptrSize*1, ptrSize);
-            ALoc napi_callbback_method = ALoc.getALoc(ptr.getRegion(), base + ptrSize*2, ptrSize);
-            ALoc napi_callbback_getter = ALoc.getALoc(ptr.getRegion(), base + ptrSize*3, ptrSize);
-            ALoc napi_callbback_setter = ALoc.getALoc(ptr.getRegion(), base + ptrSize*4, ptrSize);
-            ALoc napi_value_value = ALoc.getALoc(ptr.getRegion(), base + ptrSize*5, ptrSize);
-            ALoc attributes = ALoc.getALoc(ptr.getRegion(), base + ptrSize*6, ptrSize);
-            ALoc data = ALoc.getALoc(ptr.getRegion(), base + ptrSize*7, ptrSize);
-
-            KSet utf8nameKSet = env.get(utf8name);
-            KSet napi_callbback_methodKSet = env.get(napi_callbback_method);
-            if (utf8nameKSet.isTop()) {
-                failed = true;
-                Logging.error("Failed to resolve NAPI descriptor at 0x"+Long.toHexString(base) + " because of utf8name(" + Long.toHexString(base) + ") KSet is top.");
-                break;
-            }
-            if (napi_callbback_methodKSet.isTop()) {
-                failed = true;
-                Logging.error("Failed to resolve NAPI descriptor at 0x"+Long.toHexString(base) + " because of napi_callbback_method(" + Long.toHexString(base + ptrSize*2) + ") KSet is top.");
-                break;
-            }
-            if (napi_callbback_methodKSet.getInnerSet().size() != 1) {
-                failed = true;
-                Logging.error("Failed to resolve NAPI descriptor at 0x"+Long.toHexString(base) + " because of napi_callbback_method(" + Long.toHexString(base + ptrSize*2) + ") KSet size is not 1 but " + napi_callbback_methodKSet.getInnerSet().size());
-//                break;
-            }
-
-            AbsVal utf8nameVal = utf8nameKSet.iterator().next();
-            String utf8nameStr = decodeStr(env, utf8nameVal);
-            Logging.info("utf8name: " + utf8nameStr);
-
-//            AbsVal func_addr = napi_callbback_methodKSet.iterator().next();
-//            Logging.info("func_addr: " + func_addr);
-            index++;
-        }
-
-    }
-
 
     private String decodeStr(AbsEnv env, AbsVal val) {
         if (!val.getRegion().isGlobal()) {
@@ -298,7 +305,7 @@ public class ModuleInitChecker extends CheckerBase {
         try {
             bs = getStringFromMemory(GlobalState.flatAPI.toAddr(addr));
         } catch (MemoryAccessException e) {
-            Logging.error("JNI char* decode failed! 0x"+Long.toHexString(addr));
+            Logging.error("Char* decode failed! 0x"+Long.toHexString(addr));
             return null;
         }
         if (bs == null) {
@@ -319,11 +326,11 @@ public class ModuleInitChecker extends CheckerBase {
     public static byte[] getStringFromMemory(Address addr) throws MemoryAccessException {
         MemoryBlock mb = GlobalState.currentProgram.getMemory().getBlock(addr);
         if (mb == null) {
-            Logging.error("JNI cannot decode string at 0x"+addr.toString());
+            Logging.error("Cannot decode string at 0x"+addr.toString());
             return null;
         }
         if (mb.isWrite()) {
-            Logging.error("JNI constant str not from readonly section!");
+            Logging.error("Constant str not from readonly section!");
         }
         StringBuilder sb = new StringBuilder();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
