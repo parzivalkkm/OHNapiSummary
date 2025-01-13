@@ -42,6 +42,7 @@ import ghidra.program.model.symbol.Namespace;
 import hust.cse.ohnapisummary.env.funcs.NapiCreateFunctionFunction;
 import hust.cse.ohnapisummary.env.funcs.NapiDefinePropertiesFunction;
 import hust.cse.ohnapisummary.env.funcs.NapiModuleRegisterFunction;
+import hust.cse.ohnapisummary.env.funcs.NapiSetNamedPropertyFunction;
 
 import java.util.HashMap;
 import java.util.List;
@@ -97,7 +98,7 @@ public class FunctionModelManager {
             new NapiDefinePropertiesFunction(),
             new NapiCreateFunctionFunction(),
             new NapiModuleRegisterFunction(),
-            new NapiCreateFunctionFunction()
+            new NapiSetNamedPropertyFunction()
 
     );
 
