@@ -224,7 +224,7 @@ public class OHNapiSummary extends BinAbsInspector {
     }
 
 
-    private void run4OneFunction(Function f,hust.cse.ohnapisummary.ir.Function irFunc,boolean disableTimeot){
+    private void run4OneFunction(Function f,hust.cse.ohnapisummary.ir.Function irFunc,boolean disableTimeout){
 
         MyGlobalState.onStartOne(f, irFunc);
         GlobalState.reset();
@@ -241,7 +241,7 @@ public class OHNapiSummary extends BinAbsInspector {
 //        GlobalState.config.setDebug(true);
         GlobalState.config.clearCheckers();
         GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
-        if (disableTimeot) {
+        if (disableTimeout) {
             GlobalState.config.setTimeout(-1);
         }
 

@@ -22,7 +22,7 @@ import hust.cse.ohnapisummary.util.TypeCategory;
 import java.util.List;
 import java.util.Set;
 
-public class NAPIFunctionBase extends ExternalFunctionBase {
+public abstract class NAPIFunctionBase extends ExternalFunctionBase {
 
     public static Address currentCallSite;
 
