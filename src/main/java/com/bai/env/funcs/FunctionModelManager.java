@@ -39,7 +39,9 @@ import com.bai.util.Logging;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Namespace;
-import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
+import hust.cse.ohnapisummary.env.funcs.NapiCreateFunctionFunction;
+import hust.cse.ohnapisummary.env.funcs.NapiDefinePropertiesFunction;
+import hust.cse.ohnapisummary.env.funcs.NapiModuleRegisterFunction;
 
 import java.util.HashMap;
 import java.util.List;
@@ -91,7 +93,12 @@ public class FunctionModelManager {
             new PutsFunction(),
 
             // NAPI functions
-            new NAPIFunctionBase()
+            // TODO: add NAPI functions
+            new NapiDefinePropertiesFunction(),
+            new NapiCreateFunctionFunction(),
+            new NapiModuleRegisterFunction(),
+            new NapiCreateFunctionFunction()
+
     );
 
     private static List<String> stdNameSpaceStringList = List.of("std");
