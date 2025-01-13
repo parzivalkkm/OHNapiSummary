@@ -25,6 +25,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,9 +35,9 @@ public class ModuleInitChecker extends CheckerBase {
     }
 
     // 用于记录函数地址和对应的napi_value的映射
-    private Map<Long, Long> valueToFunctionPointerMap;
+    private Map<Long, Long> valueToFunctionPointerMap = new HashMap<>();
     // 用于记录函数名和对应的napi_value的映射
-    private Map<Long, String> valueToFunctionNameMap;
+    private Map<Long, String> valueToFunctionNameMap = new HashMap<>();
 
     @Override
     public boolean check() {
