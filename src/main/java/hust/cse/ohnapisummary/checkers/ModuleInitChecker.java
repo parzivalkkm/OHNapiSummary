@@ -41,6 +41,7 @@ public class ModuleInitChecker extends CheckerBase {
 
     @Override
     public boolean check() {
+        Logging.info("Checking Module Init Function");
         for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callsOrValues.entrySet()) {
             NAPIValue napiValue = entry.getKey();
             Context context = entry.getValue();
@@ -55,8 +56,7 @@ public class ModuleInitChecker extends CheckerBase {
             String calleeName = callee.getName();
 
             if (calleeName.equals("napi_define_properties")) {
-                Logging.info("Checking Module Register Function" + caller.getName());
-
+                Logging.info("Resolving dynamic registered napi from napi_define_properties");
                 AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
                 if (absEnv == null) {
                     Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
@@ -83,7 +83,7 @@ public class ModuleInitChecker extends CheckerBase {
                 //    napi_set_named_property(env, exports, "calculateArea", fn);
                 //    return exports;
                 //}
-                Logging.info("Checking Function" + caller.getName());
+                Logging.info("Resolving dynamic registered napi from napi_set_named_property");
                 // TODO: 解析napi_set_named_property的第三、四个参数
                 AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
                 if (absEnv == null) {
@@ -101,6 +101,7 @@ public class ModuleInitChecker extends CheckerBase {
                         Logging.error("name is not global.");
                     }
                 }
+                Logging.info("name of property is: " + name);
 
                 // 解析napi_set_named_property的第四个参数，即属性值
                 KSet valueKSet = getParamKSet(callee, 3, absEnv);
@@ -110,7 +111,8 @@ public class ModuleInitChecker extends CheckerBase {
                         value = absVal.getValue();
                     }
                 }
-                Logging.info("name of property is: " + name);
+                Logging.info("napi_value pointer is: " + value);
+
 
                 if (name != null && value != 0) {
                     valueToFunctionNameMap.put(value, name);
@@ -125,7 +127,7 @@ public class ModuleInitChecker extends CheckerBase {
                 //    napi_set_named_property(env, exports, "calculateArea", fn);
                 //    return exports;
                 //}
-                Logging.info("Checking Function" + caller.getName());
+                Logging.info("Resolving dynamic registered napi from napi_create_function");
 
                 AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
                 if (absEnv == null) {
@@ -159,19 +161,18 @@ public class ModuleInitChecker extends CheckerBase {
 
             }
 
-            // 处理第二种方式注册的函数
-            // 遍历valueToFunctionPointerMap以及valueToFunctionNameMap，将其解析为NAPIDescriptor
-            for(Map.Entry<Long, Long> entry1 : valueToFunctionPointerMap.entrySet()){
-                long value = entry1.getKey();
-                long funcPtr = entry1.getValue();
-                if (valueToFunctionNameMap.containsKey(value)) {
-                    String name = valueToFunctionNameMap.get(value);
-                    Logging.info("Find dynamic registered napi: " + name + " at 0x" + Long.toHexString(funcPtr));
-                    MyGlobalState.dynRegNAPIList.add(new NAPIDescriptor(name, GlobalState.flatAPI.toAddr(funcPtr)));
-                }
+        }
+
+        // 处理第二种方式注册的函数
+        // 遍历valueToFunctionPointerMap以及valueToFunctionNameMap，将其解析为NAPIDescriptor
+        for(Map.Entry<Long, Long> entry1 : valueToFunctionPointerMap.entrySet()){
+            long value = entry1.getKey();
+            long funcPtr = entry1.getValue();
+            if (valueToFunctionNameMap.containsKey(value)) {
+                String name = valueToFunctionNameMap.get(value);
+                Logging.info("Find dynamic registered napi: " + name + " at 0x" + Long.toHexString(funcPtr));
+                MyGlobalState.dynRegNAPIList.add(new NAPIDescriptor(name, GlobalState.flatAPI.toAddr(funcPtr)));
             }
-
-
         }
         return false;
     }

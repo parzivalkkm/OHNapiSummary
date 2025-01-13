@@ -46,7 +46,7 @@ public class RegisterChecker  extends CheckerBase {
                 Context context = entry.getValue();
                 long callSite = napiValue.callsite;
                 Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSite));
-                Logging.info("Checking Module Register Function" + caller.getName());
+                Logging.info("Checking Module Register Function " + caller.getName());
                 Function callee = napiValue.getApi();
                 if (callee == null) {
                     Logging.error("Cannot find called external function for 0x" + Long.toHexString(callSite));
