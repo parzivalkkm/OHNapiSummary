@@ -24,6 +24,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+
+import hust.cse.ohnapisummary.util.MyGlobalState;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.javimmutable.collections.JImmutableSet;
 import org.javimmutable.collections.tree.JImmutableTreeMap;
@@ -272,7 +274,10 @@ public class Context {
         updateSP(env);
         if (isMain) {
             // TODO: 此处要进行更改
-            prepareMainAbsEnv(env, callee);
+//            对main函数的prepare被替代掉了
+//            prepareMainAbsEnv(env, callee);
+            Function cur = MyGlobalState.currentFunction;
+            MyGlobalState.napiManager.setupArgsAndCreateTaint(cur, env, this);
         }
         AbsEnv oldInit = getValueBefore(entry);
 

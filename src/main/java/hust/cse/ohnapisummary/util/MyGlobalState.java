@@ -43,7 +43,6 @@ public class MyGlobalState {
 
     public static ArrayList<NAPIDescriptor> dynRegNAPIList = new ArrayList<>();
 
-    public static ArrayList<NAPIMapping> napiMappingList = new ArrayList<>();
 
     public static SummaryExporter se;
 

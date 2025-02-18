@@ -28,8 +28,9 @@ public class InterSolver {
      * The driver function for the interprocedural analysis  
      */
     public void run() {
+        // TODO 要做出一些修改
         Context mainContext = Context.getEntryContext(entry);
-        mainContext.initContext(new AbsEnv(), isMain);
+        mainContext.initContext(new AbsEnv(), true);
         int timeout = GlobalState.config.getTimeout();
         if (timeout < 0) {
             Context.mainLoop(mainContext);

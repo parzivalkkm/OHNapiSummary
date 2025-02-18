@@ -4,7 +4,6 @@ import com.bai.checkers.CheckerBase;
 import com.bai.env.*;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
-import com.bai.util.StringUtils;
 import com.bai.util.Utils;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
@@ -45,7 +44,7 @@ public class ModuleInitChecker extends CheckerBase {
         for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callsOrValues.entrySet()) {
             NAPIValue napiValue = entry.getKey();
             Context context = entry.getValue();
-            long callSite = napiValue.callsite;
+            long callSite = napiValue.callSite;
             Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSite));
             Function callee = napiValue.getApi();
             if (callee == null) {

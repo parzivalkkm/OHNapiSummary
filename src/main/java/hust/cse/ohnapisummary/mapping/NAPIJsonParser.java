@@ -50,8 +50,15 @@ public class NAPIJsonParser {
             String returnType = obj.get("arkts_return_type").getAsString();
             JsonArray params = obj.getAsJsonArray("params");
 
+            Logging.info("Dynamic regist list: "+MyGlobalState.dynRegNAPIList);
             Function f = getFunctionFromDescriptorList(name);
 
+            if (f == null) {
+                Logging.warn("Cannot find function for descriptor: "+name);
+                continue;
+            }
+
+            // TODO：把有关irFunc的全部替换成NAPISummary
             hust.cse.ohnapisummary.ir.Function irFunc = new hust.cse.ohnapisummary.ir.Function();
             irFunc.name = name;
             // 事实上这些函数的参数全部都是napi_env和napi_callback_info，不应该依照params来添加参数

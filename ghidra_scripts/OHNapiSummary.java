@@ -52,6 +52,10 @@ public class OHNapiSummary extends BinAbsInspector {
 
         // 寻找调用napi_module_register的注册函数
         List<Reference> references = Utils.getReferences(List.of("napi_module_register"));
+        if (references.isEmpty()) {
+            Logging.error("No napi_module_register found.");
+            return;
+        }
         for (Reference reference : references) {
             Address toAddress = reference.getToAddress();
             Address fromAddress = reference.getFromAddress();
@@ -115,7 +119,6 @@ public class OHNapiSummary extends BinAbsInspector {
         println("OHNapiSummary script execution time: " + duration + "ms.");
     }
 
-    // TODO：实现真正的从注册逻辑开始的分析
     private void run4RegisterFunction(Function f) {
         GlobalState.reset();
         MyGlobalState.onStartOne(f, null);

@@ -1,11 +1,20 @@
 package hust.cse.ohnapisummary.util;
 
-import com.bai.env.Context;
+import com.bai.env.*;
+import com.bai.env.funcs.externalfuncs.ExternalFunctionBase;
 import com.bai.env.region.Heap;
 import com.bai.util.GlobalState;
+import com.bai.util.Logging;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.data.DataType;
+import ghidra.program.model.data.TypeDef;
+import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.Parameter;
+import hust.cse.ohnapisummary.env.MyTaintMap;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class NAPIValueManager {
@@ -61,6 +70,76 @@ public class NAPIValueManager {
         return idMap.get(id);
     }
 
+
+    public void setupArgsAndCreateTaint(Function cur, AbsEnv env, Context mainContext) {
+        Logging.info("setupArgsAndCreateTaint: "+cur.toString());
+        Logging.info("Number of params: "+cur.getParameters().length);
+        for (int i=0;i<cur.getParameters().length;i++) {
+            Parameter p = cur.getParameters()[i];
+            List<ALoc> alocs = ExternalFunctionBase.getParamALocs(cur, i, env);
+            if (alocs.size() > 1) {
+                Logging.warn("setupArg: multiple ALocs found for param !!!");
+            }
+            if (alocs.isEmpty()) {
+                // TODO 这一句一直报错
+                Logging.error("Cannot find ALocs for param!!! " +
+                        String.format("(Func %s, Param %s %s)", cur.toString(), p.getDataType().getName(), p.getName()));
+            }
+            for (ALoc al: alocs) {
+                NAPIValue napiValue = new NAPIValue(i);
+                KSet val = getKSetForValue(TypeCategory.byName(p.getDataType()), cur.getEntryPoint(), napiValue, al.getLen()*8, cur, mainContext, env);
+                if (val != null) {
+                    env.set(al, val, false);
+                }
+            }
+        }
+    }
+
+    public static KSet getKSetForValue(TypeCategory typeCategory, Address callSite, NAPIValue napiValue, int bits, Function callee, Context context, AbsEnv env){
+        long newTaint;
+        KSet retKSet;
+        switch (typeCategory) {
+            case NAPI_STATUS:
+                return KSet.getTop(0);
+            case NAPI_ENV:
+                assert bits == (MyGlobalState.defaultPointerSize * 8);
+                retKSet = new KSet(bits);
+                retKSet = retKSet.insert(new AbsVal(getNapiEnv()));
+                return retKSet;
+            case NAPI_CALLBACK_INFO:
+                assert bits == (MyGlobalState.defaultPointerSize * 8);
+                retKSet = new KSet(bits);
+                retKSet = retKSet.insert(new AbsVal(getNapiCbInfo()));
+                return retKSet;
+            case NAPI_VALUE:
+                long val = MyGlobalState.napiManager.getOrAllocateId(napiValue);  // 记录在id MAP之中 key是NAPIValue(区分)
+                retKSet = new KSet(bits);
+                retKSet = retKSet.insert(new AbsVal(val));
+                return retKSet;
+            case NUMBER:
+                newTaint = MyTaintMap.getTaints(napiValue); // 只有数字类型需要污点
+                if (MyTaintMap.isNewTaint(newTaint)) {
+                    Logging.info("Allocating taint for "+(callee==null?"Param":callee.getName())+" at "+callSite+" with taint "+newTaint);
+                }
+                return KSet.getTop(newTaint);
+            case BUFFER:
+                // TODO: 处理heap
+            case UNKNOWN:
+        }
+        return null;
+    }
+
+    // 用两个一般不会用到的大负数标记NAPI_ENV和NAPI_CALLBACK_INFO的地址
+    public static long[] napiEnvAddr = {0xE000_0000L, 0x7fff_0000_0000L};
+
+    public static long getNapiEnv() {
+        int defPtrSize = MyGlobalState.defaultPointerSize;
+        return napiEnvAddr[(defPtrSize/4)-1];
+    }
+
+    public static long getNapiCbInfo() {
+        return getNapiEnv()+0x2000L;
+    }
 
 
 

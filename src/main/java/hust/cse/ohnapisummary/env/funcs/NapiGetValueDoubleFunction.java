@@ -8,6 +8,7 @@ import ghidra.program.model.pcode.PcodeOp;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
 import hust.cse.ohnapisummary.util.NAPIValueManager;
+import hust.cse.ohnapisummary.util.TypeCategory;
 
 import java.util.List;
 import java.util.Set;
@@ -24,8 +25,8 @@ public class NapiGetValueDoubleFunction extends NAPIFunctionBase{
         //NAPI_EXTERN napi_status napi_get_value_double(napi_env env,
         //                                              napi_value value,
         //                                              double* result);
-        NAPIValue nv = recordCall(context, calleeFunc); // 记录调用的nv
-        // TODO:还应该有一个记录参数的nv
+        NAPIValue callNV = recordCall(context, calleeFunc); // 记录调用的nv
+
         // 向result中插入一个抽象值
         List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
         Parameter param = calleeFunc.getParameter(2);
@@ -34,11 +35,16 @@ public class NapiGetValueDoubleFunction extends NAPIFunctionBase{
             KSet ks = inOutEnv.get(loc);
             for (AbsVal val : ks) {
                 ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-                // TODO: 插入抽象值
-                KSet env = NAPIValueManager.getKSetForValue(dataType, calleeFunc.getEntryPoint(), nv, MyGlobalState.defaultPointerSize*8, calleeFunc, context, inOutEnv);
+                NAPIValue localNV = recordLocal(context, calleeFunc, ptr);
+                KSet env = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
                 assert env.getInnerSet().size() == 1;
                 inOutEnv.set(ptr, env, true);
             }
         }
+
+        // 处理返回值
+        ALoc retALoc = getReturnALoc(calleeFunc, false);
+        KSet retKset = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_STATUS, calleeFunc.getEntryPoint(), callNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
+        inOutEnv.set(retALoc, retKset, true);
     }
 }

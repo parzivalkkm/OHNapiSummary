@@ -7,18 +7,14 @@ import com.bai.env.Context;
 import com.bai.env.KSet;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
-import com.bai.util.Utils;
-import com.sun.jna.platform.win32.WinDef;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Parameter;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
-import ghidra.program.model.symbol.Reference;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
-import org.python.antlr.op.Add;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -28,7 +24,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 
@@ -44,7 +39,7 @@ public class RegisterChecker  extends CheckerBase {
             if (entry.getKey().isRegisterFunction()) {
                 NAPIValue napiValue = entry.getKey();
                 Context context = entry.getValue();
-                long callSite = napiValue.callsite;
+                long callSite = napiValue.callSite;
                 Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSite));
                 Logging.info("Checking Module Register Function " + caller.getName());
                 Function callee = napiValue.getApi();

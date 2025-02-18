@@ -6,9 +6,11 @@ import com.bai.env.funcs.externalfuncs.ExternalFunctionBase;
 import com.bai.env.region.RegionBase;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
+import ghidra.program.model.address.Address;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.VoidDataType;
 import ghidra.program.model.listing.*;
+import ghidra.program.model.mem.MemoryBlock;
 import hust.cse.ohnapisummary.ir.Module;
 import hust.cse.ohnapisummary.ir.NumValueNamer;
 import hust.cse.ohnapisummary.ir.inst.Call;
@@ -16,11 +18,13 @@ import hust.cse.ohnapisummary.ir.inst.Phi;
 import hust.cse.ohnapisummary.ir.inst.Ret;
 import hust.cse.ohnapisummary.ir.utils.Use;
 import hust.cse.ohnapisummary.ir.utils.Value;
+import hust.cse.ohnapisummary.ir.value.Null;
 import hust.cse.ohnapisummary.ir.value.Top;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
 
-import hust.cse.ohnapisummary.env.TaintMap;
+import hust.cse.ohnapisummary.env.MyTaintMap;
+import hust.cse.ohnapisummary.util.TypeCategory;
 
 import java.util.*;
 
@@ -62,7 +66,7 @@ public class SummaryExporter extends CheckerBase {
             return ret;
         }
         long taints = kSet.getTaints();
-        List<NAPIValue> taintSourceList = TaintMap.getTaintSourceList(taints);
+        List<NAPIValue> taintSourceList = MyTaintMap.getTaintSourceList(taints);
         for (NAPIValue napiValue: taintSourceList) {
             ret.add(decodeNapiValue(napiValue));
         }
@@ -73,10 +77,63 @@ public class SummaryExporter extends CheckerBase {
         for (AbsVal targetVal : kSet) {
             // 处理Heap region
             RegionBase region = targetVal.getRegion();
+            if (region.isHeap() && MyGlobalState.napiManager.heapMap.containsKey(region)) {
+                ret.add(decodeNapiValue(MyGlobalState.napiManager.heapMap.get(region)));
+                // check Ffirst taint in heap
+                KSet top = env.get(ALoc.getALoc(region, region.getBase(), 1));
+                taints = top.getTaints();
+                taintSourceList = MyTaintMap.getTaintSourceList(taints);
+                for (NAPIValue jv : taintSourceList) {
+                    ret.add(decodeNapiValue(jv));
+                }
+                continue;
+            }
 
+            if (!region.isGlobal() || targetVal.isBigVal()) {
+                Logging.warn("Cannot decode Absval: "+targetVal.toString()); // + " at: " +  TODO
+                ret.add(new Top());
+                continue;
+            }
+
+            // 判断是否是不透明的JNI值
+            long id = targetVal.getValue();
+//            if (id == EnvSetup.getJNIEnv()) {
+//                ret.add(current.params.get(0));
+//                continue;
+//            }
+
+            // TODO：特殊类型
+
+            long addr = id;
+            String dtName;
+            TypeCategory dtTc;
+            if (dataType != null) {
+                dtName = dataType.getName();
+                dtTc = TypeCategory.byName(dataType);
+            } else if (isPossibleStr(targetVal)) { // in rodata region
+                dtName = "const char*";
+                dtTc = null;
+            } else {
+                // TODO
+                dtName= "int";
+                dtTc = TypeCategory.NUMBER;
+            }
 
         }
         return ret;
+    }
+
+    boolean isPossibleStr(AbsVal val) {
+        if (!val.getRegion().isGlobal()) {
+            return false;
+        }
+        long addr_ = val.getValue();
+        Address addr = GlobalState.flatAPI.toAddr(addr_);
+        MemoryBlock mb = GlobalState.currentProgram.getMemory().getBlock(addr);
+        if (mb == null) {
+            return false;
+        }
+        return !mb.isWrite();
     }
 
     /**
@@ -93,12 +150,13 @@ public class SummaryExporter extends CheckerBase {
         for (int i = 0; i < paramSize; i++) {
             Parameter param = napi.getParameter(i);
             String dataTypeName = param.getDataType().getName();
+            Logging.info("param: "+param.getName()+" "+param.getDataType().getName());
             // TODO: 处理env的类型
-//            if (dataTypeName.equals("JNIEnv *") || dataTypeName.equals("JavaVM *")) {
-//                call.operands.add(new Use(call, Null.instance));
-//                continue;
-//            }
-            Logging.debug("param: "+param.getName()+" "+param.getDataType().getName());
+            if (dataTypeName.equals("napi_env") || dataTypeName.equals("napi_callback_info")) {
+                Logging.info("skip env type: "+dataTypeName);
+                call.operands.add(new Use(call, Null.instance));
+                continue;
+            }
 
             List<ALoc> alocs = getParamALocs(napi, i, env);
 
@@ -187,10 +245,17 @@ public class SummaryExporter extends CheckerBase {
 
     @Override
     public boolean check() {
-        for(Map.Entry<NAPIValue, Context> ent: MyGlobalState.napiManager.callSites.entrySet()) {
+        Logging.info("Exporting summaries for "+MyGlobalState.currentFunction.getName());
+
+        //
+
+
+
+
+        for(Map.Entry<NAPIValue, Context> ent: MyGlobalState.napiManager.callsOrValues.entrySet()) {
             NAPIValue napiValue = ent.getKey();
             Context context = ent.getValue();
-            long callSiteAddr = napiValue.callsite;
+            long callSiteAddr = napiValue.callSite;
 
             Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSiteAddr));
 
@@ -239,7 +304,7 @@ public class SummaryExporter extends CheckerBase {
             ret = (Call) napiValue_Value_Map.get(nv);
         } else {
             ret = new Call();
-            ret.callsite = nv.callsite;
+            ret.callsite = nv.callSite;
             ret.target = getIrFullName(nv.getApi());
             ret.callstring = nv.callstring;
         }
