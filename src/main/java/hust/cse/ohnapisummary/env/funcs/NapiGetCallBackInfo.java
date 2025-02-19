@@ -88,10 +88,9 @@ public class NapiGetCallBackInfo extends NAPIFunctionBase{
 
         for(int i=0; i<size;i++) {
             // 往上面的指针里面放有污点的值
-            DataType dataType = calleeFunc.getParameter(3).getDataType();
             // TODO:改为正确的
-            NAPIValue localNV = recordLocal(context, calleeFunc, starPtrAloc);
-            KSet env = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_VALUE, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
+            NAPIValue localNV = recordLocalMultiRet(context, calleeFunc, 3, i);
+            KSet env = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_VALUE, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
             assert env.getInnerSet().size() == 1;
             inOutEnv.set(starPtrAloc, env, true);
 
@@ -102,38 +101,16 @@ public class NapiGetCallBackInfo extends NAPIFunctionBase{
         }
 
 
+        // TODO
+        // 向p4传入值
+
+        // 向p5传入值
+
+
         // 处理返回值
         ALoc retALoc = getReturnALoc(calleeFunc, false);
-        KSet retKset = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_STATUS, calleeFunc.getEntryPoint(), callNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
+        KSet retKset = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_STATUS, calleeFunc.getEntryPoint(), callNV, retALoc.getLen()* 8, calleeFunc, context, inOutEnv);
         inOutEnv.set(retALoc, retKset, true);
-
-
-        // 遍历输出每个调用每个变量的kset
-//        Parameter[] parameters = calleeFunc.getParameters();
-//        for(int i=0; i<parameters.length; i++){
-////            PrototypeModel callingConvention = calleeFunc.getCallingConvention();
-////            VariableStorage variableStorage = callingConvention.getArgLocation(i, null,
-////                    parameters[i].getDataType(), GlobalState.currentProgram);
-////            Logging.info("Tainting var storage " + variableStorage.toString());
-//
-//
-//            alocs = getParamALocs(calleeFunc, i, inOutEnv);
-//            for (ALoc loc: alocs) {
-////                Logging.info(funcName + " param " + i + " ALoc: " + loc);
-//                KSet ks = inOutEnv.get(loc);
-////                Logging.info(funcName + " param " + i + " KSet: " + ks);
-//                for (AbsVal val : ks) {
-//                    ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-//                    DataType dataType = calleeFunc.getParameter(i).getDataType();
-//                    Logging.info(funcName + " param " + i + " AbsVal:" + ptr + " " + dataType);
-//                    Varnode varnode = parameters[i].getVariableStorage().getVarnodes()[0];
-//                    if (dataType.getName().contains("napi_value")){
-//                        // 试着解析一下其指向的抽象内存
-//
-//                    }
-//                }
-//            }
-//        }
 
 
     }

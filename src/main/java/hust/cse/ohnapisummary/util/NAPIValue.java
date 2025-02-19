@@ -22,6 +22,14 @@ public class NAPIValue {
         return napiValueCategory == NAPIValueCategory.PARAM;
     }
 
+    public boolean isLocalValue() {
+        return napiValueCategory == NAPIValueCategory.LOCAL;
+    }
+
+    public boolean isFunctionCall() {
+        return napiValueCategory == NAPIValueCategory.FUNC_CALL;
+    }
+
     /*************************************************************************
      *
      *  NAPIValueCategory为FUNC_CALL时的field
@@ -43,9 +51,9 @@ public class NAPIValue {
     }
 
     public Function getApi() {
-        if (napiValueCategory != NAPIValueCategory.FUNC_CALL) {
-            throw new RuntimeException("NAPIValue is not a function call");
-        }
+//        if (napiValueCategory != NAPIValueCategory.FUNC_CALL) {
+//            throw new RuntimeException("NAPIValue is not a function call");
+//        }
         return api;
     }
 
@@ -78,12 +86,27 @@ public class NAPIValue {
     Long localAlocBegin = 0L;
     int localAlocLen = 0;
 
-    public NAPIValue(Function api, long callSite, ALoc aloc) { // 局部变量类型的Constructor
+    int retIntoParamIndex = -1;
+
+    int multiRetIndex = -1;
+
+    public int getRetIntoParamIndex() {
+        return retIntoParamIndex;
+    }
+
+    public NAPIValue(Function api, long callSite, int retIntoParamIndex) {
         this.napiValueCategory = NAPIValueCategory.LOCAL;
         this.api = api;
         this.callSite = callSite;
-        this.localAlocBegin = aloc.getBegin();
-        this.localAlocLen = aloc.getLen();
+        this.retIntoParamIndex = retIntoParamIndex;
+    }
+
+    public NAPIValue(Function api, long callSite, int retIntoParamIndex, int multiRetIndex) {
+        this.napiValueCategory = NAPIValueCategory.LOCAL;
+        this.api = api;
+        this.callSite = callSite;
+        this.retIntoParamIndex = retIntoParamIndex;
+        this.multiRetIndex = multiRetIndex;
     }
     
     @Override
@@ -92,12 +115,13 @@ public class NAPIValue {
         if (o == null || getClass() != o.getClass()) return false;
         NAPIValue napiValue = (NAPIValue) o;
         return paramIndex == napiValue.paramIndex && callSite == napiValue.callSite && napiValueCategory == napiValue.napiValueCategory
-            && Objects.equals(api, napiValue.api) && Arrays.equals(callstring, napiValue.callstring) && localAlocBegin.equals(napiValue.localAlocBegin) && localAlocLen == napiValue.localAlocLen;
+            && Objects.equals(api, napiValue.api) && Arrays.equals(callstring, napiValue.callstring) &&
+                localAlocBegin.equals(napiValue.localAlocBegin) && localAlocLen == napiValue.localAlocLen && retIntoParamIndex == napiValue.retIntoParamIndex && multiRetIndex == napiValue.multiRetIndex;
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(napiValueCategory, api, paramIndex, callSite, localAlocBegin, localAlocLen);
+        int result = Objects.hash(napiValueCategory, api, paramIndex, callSite, localAlocBegin, localAlocLen, retIntoParamIndex, multiRetIndex);
         result = 31 * result + Arrays.hashCode(callstring);
         return result;
     }

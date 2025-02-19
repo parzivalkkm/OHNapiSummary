@@ -9,6 +9,17 @@ public class Call extends Instruction {
     public long[] callstring; // context+callsite
     public String target;
     public long callsite;
+    public int returnValueIndex;
+
+    public void setNormalReturn() {
+        returnValueIndex = -1;
+    }
+
+    public void setIntrinsicReturn(int index) {
+        returnValueIndex = index;
+    }
+
+
 
     @Override
     public String getOpString() {

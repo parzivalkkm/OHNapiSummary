@@ -26,25 +26,25 @@ public class NapiGetValueDoubleFunction extends NAPIFunctionBase{
         //                                              napi_value value,
         //                                              double* result);
         NAPIValue callNV = recordCall(context, calleeFunc); // 记录调用的nv
+        // 处理返回值
+        ALoc retALoc = getReturnALoc(calleeFunc, false);
+        KSet retKset = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_STATUS, calleeFunc.getEntryPoint(), callNV, retALoc.getLen()* 8, calleeFunc, context, inOutEnv);
+        inOutEnv.set(retALoc, retKset, true);
 
         // 向result中插入一个抽象值
         List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
-        Parameter param = calleeFunc.getParameter(2);
-        DataType dataType = param.getDataType();
+        // 记录这个返回值
+        NAPIValue localNV = recordLocal(context, calleeFunc,2);
+        // 向分析中写入一个抽象值
+        KSet kSetForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
         for (ALoc loc: alocs) {
             KSet ks = inOutEnv.get(loc);
             for (AbsVal val : ks) {
                 ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-                NAPIValue localNV = recordLocal(context, calleeFunc, ptr);
-                KSet env = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
-                assert env.getInnerSet().size() == 1;
-                inOutEnv.set(ptr, env, true);
+                inOutEnv.set(ptr, kSetForValue, true); // *ptr = env
             }
         }
 
-        // 处理返回值
-        ALoc retALoc = getReturnALoc(calleeFunc, false);
-        KSet retKset = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_STATUS, calleeFunc.getEntryPoint(), callNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
-        inOutEnv.set(retALoc, retKset, true);
+
     }
 }

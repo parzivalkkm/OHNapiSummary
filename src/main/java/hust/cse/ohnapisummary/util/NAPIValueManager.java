@@ -99,18 +99,11 @@ public class NAPIValueManager {
         long newTaint;
         KSet retKSet;
         switch (typeCategory) {
+            // 一些不透明的值
+            case IN_TRANSPARENT:
             case NAPI_STATUS:
-                return KSet.getTop(0);
             case NAPI_ENV:
-                assert bits == (MyGlobalState.defaultPointerSize * 8);
-                retKSet = new KSet(bits);
-                retKSet = retKSet.insert(new AbsVal(getNapiEnv()));
-                return retKSet;
             case NAPI_CALLBACK_INFO:
-                assert bits == (MyGlobalState.defaultPointerSize * 8);
-                retKSet = new KSet(bits);
-                retKSet = retKSet.insert(new AbsVal(getNapiCbInfo()));
-                return retKSet;
             case NAPI_VALUE:
                 long val = MyGlobalState.napiManager.getOrAllocateId(napiValue);  // 记录在id MAP之中 key是NAPIValue(区分)
                 retKSet = new KSet(bits);
@@ -129,17 +122,6 @@ public class NAPIValueManager {
         return null;
     }
 
-    // 用两个一般不会用到的大负数标记NAPI_ENV和NAPI_CALLBACK_INFO的地址
-    public static long[] napiEnvAddr = {0xE000_0000L, 0x7fff_0000_0000L};
-
-    public static long getNapiEnv() {
-        int defPtrSize = MyGlobalState.defaultPointerSize;
-        return napiEnvAddr[(defPtrSize/4)-1];
-    }
-
-    public static long getNapiCbInfo() {
-        return getNapiEnv()+0x2000L;
-    }
 
 
 

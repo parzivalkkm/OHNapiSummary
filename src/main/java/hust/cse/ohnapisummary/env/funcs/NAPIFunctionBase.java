@@ -40,8 +40,14 @@ public abstract class NAPIFunctionBase extends ExternalFunctionBase {
         return nv;
     }
 
-    public static NAPIValue recordLocal(Context ctx, Function api, ALoc aLoc) {
-        NAPIValue nv = new NAPIValue(api, currentCallSite.getOffset(),aLoc);
+    public static NAPIValue recordLocal(Context ctx, Function api, int retIntoParamIndex) {
+        NAPIValue nv = new NAPIValue(api, currentCallSite.getOffset(),retIntoParamIndex);
+        MyGlobalState.napiManager.registerCall(nv, ctx);
+        return nv;
+    }
+
+    public static NAPIValue recordLocalMultiRet(Context ctx, Function api, int retIntoParamIndex, int multiRetSIndex) {
+        NAPIValue nv = new NAPIValue(api, currentCallSite.getOffset(),retIntoParamIndex,multiRetSIndex);
         MyGlobalState.napiManager.registerCall(nv, ctx);
         return nv;
     }

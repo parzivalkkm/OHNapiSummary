@@ -25,25 +25,25 @@ public class NapiCreateDoubleFunction  extends NAPIFunctionBase {
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
         // napi_status napi_create_double(napi_env env, double value, napi_value* result);
         NAPIValue callNV = recordCall(context, calleeFunc); // 记录调用的nv
+        // 处理返回值
+        ALoc retALoc = getReturnALoc(calleeFunc, false);
+        KSet retKset = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_STATUS, calleeFunc.getEntryPoint(), callNV, retALoc.getLen()* 8, calleeFunc, context, inOutEnv);
+        inOutEnv.set(retALoc, retKset, true);
 
         // 向result中插入一个抽象值
         List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
-        Parameter param = calleeFunc.getParameter(2);
-        DataType dataType = param.getDataType();
+
+        NAPIValue localNV = recordLocal(context, calleeFunc, 2);
+        KSet kSetForValue = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_VALUE, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize*8, calleeFunc, context, inOutEnv);
+
         for (ALoc loc: alocs) {
             KSet ks = inOutEnv.get(loc);
             for (AbsVal val : ks) {
                 ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-                NAPIValue localNV = recordLocal(context, calleeFunc, ptr);
-                KSet env = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_VALUE, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
-                assert env.getInnerSet().size() == 1;
-                inOutEnv.set(ptr, env, true);
+                inOutEnv.set(ptr, kSetForValue, true);
             }
         }
 
-        // 处理返回值
-        ALoc retALoc = getReturnALoc(calleeFunc, false);
-        KSet retKset = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_STATUS, calleeFunc.getEntryPoint(), callNV, MyGlobalState.defaultPointerSize, calleeFunc, context, inOutEnv);
-        inOutEnv.set(retALoc, retKset, true);
+
     }
 }

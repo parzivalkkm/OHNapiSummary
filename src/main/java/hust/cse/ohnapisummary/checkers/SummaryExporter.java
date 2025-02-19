@@ -10,6 +10,7 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.VoidDataType;
 import ghidra.program.model.listing.*;
+import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
 import hust.cse.ohnapisummary.ir.Module;
 import hust.cse.ohnapisummary.ir.NumValueNamer;
@@ -20,12 +21,23 @@ import hust.cse.ohnapisummary.ir.utils.Use;
 import hust.cse.ohnapisummary.ir.utils.Value;
 import hust.cse.ohnapisummary.ir.value.Null;
 import hust.cse.ohnapisummary.ir.value.Top;
+import hust.cse.ohnapisummary.ir.value.Number;
+import hust.cse.ohnapisummary.ir.value.Str;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
 
+
 import hust.cse.ohnapisummary.env.MyTaintMap;
+import hust.cse.ohnapisummary.util.NAPIValueManager;
 import hust.cse.ohnapisummary.util.TypeCategory;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class SummaryExporter extends CheckerBase {
@@ -68,6 +80,7 @@ public class SummaryExporter extends CheckerBase {
         long taints = kSet.getTaints();
         List<NAPIValue> taintSourceList = MyTaintMap.getTaintSourceList(taints);
         for (NAPIValue napiValue: taintSourceList) {
+            // 将前面的taints加入到ret中(仅与数字相关)
             ret.add(decodeNapiValue(napiValue));
         }
         if (kSet.isTop()) {
@@ -78,6 +91,7 @@ public class SummaryExporter extends CheckerBase {
             // 处理Heap region
             RegionBase region = targetVal.getRegion();
             if (region.isHeap() && MyGlobalState.napiManager.heapMap.containsKey(region)) {
+
                 ret.add(decodeNapiValue(MyGlobalState.napiManager.heapMap.get(region)));
                 // check Ffirst taint in heap
                 KSet top = env.get(ALoc.getALoc(region, region.getBase(), 1));
@@ -86,24 +100,32 @@ public class SummaryExporter extends CheckerBase {
                 for (NAPIValue jv : taintSourceList) {
                     ret.add(decodeNapiValue(jv));
                 }
+
                 continue;
             }
 
+            // 如果没有具体的值，则返回Top
             if (!region.isGlobal() || targetVal.isBigVal()) {
                 Logging.warn("Cannot decode Absval: "+targetVal.toString()); // + " at: " +  TODO
                 ret.add(new Top());
                 continue;
             }
 
-            // 判断是否是不透明的JNI值
+            // 获取其具体值
             long id = targetVal.getValue();
-//            if (id == EnvSetup.getJNIEnv()) {
-//                ret.add(current.params.get(0));
-//                continue;
-//            }
 
-            // TODO：特殊类型
+            // 这个值保存的可能是给不透明值分配的id
+            if (NAPIValueManager.highestBitsMatch(id)) { // special value
+                NAPIValue v = MyGlobalState.napiManager.getValue(id);
+                if (v == null) {
+                    Logging.warn("Cannot find JNIValue?: "+Long.toHexString(id));
+                } else {
+                    ret.add(decodeNapiValue(v));
+                    continue;
+                }
+            }
 
+            // 这个值保存的还可能是一个地址，尝试对其进行解析
             long addr = id;
             String dtName;
             TypeCategory dtTc;
@@ -118,6 +140,44 @@ public class SummaryExporter extends CheckerBase {
                 dtName= "int";
                 dtTc = TypeCategory.NUMBER;
             }
+
+            switch (dtName.replaceAll("\\s+","")) {
+                case "constchar*":
+                case "char*":
+                    if (addr == 0) { // handle null
+                        ret.add(new Null());
+                        continue;
+                    }
+                    String s = decodeStr(env, targetVal);
+                    ret.add(Str.of(s));
+                    continue;
+                // TODO 其他类型
+
+                default:
+                    break;
+            }
+
+            switch (dtTc) {
+                case NAPI_CALLBACK_INFO:
+                case NAPI_ENV:
+                case NAPI_STATUS:
+                case NAPI_VALUE:
+                    Logging.error("不透明值应当已被处理");
+                    break;
+                case BUFFER:
+                    Logging.error(String.format("Cannot decode buffer(%s): 0x%s", dataType != null ? dataType.toString(): dtName, Long.toHexString(addr)));
+                    break;
+                case NUMBER:
+                    ret.add(Number.ofLong(addr));
+                    break;
+                default:
+                case UNKNOWN:
+                    if (!dtName.equals("undefined")) {
+                        Logging.error("Unknown datatype "+dtName);
+                    }
+                    break;
+            }
+
 
         }
         return ret;
@@ -151,12 +211,6 @@ public class SummaryExporter extends CheckerBase {
             Parameter param = napi.getParameter(i);
             String dataTypeName = param.getDataType().getName();
             Logging.info("param: "+param.getName()+" "+param.getDataType().getName());
-            // TODO: 处理env的类型
-            if (dataTypeName.equals("napi_env") || dataTypeName.equals("napi_callback_info")) {
-                Logging.info("skip env type: "+dataTypeName);
-                call.operands.add(new Use(call, Null.instance));
-                continue;
-            }
 
             List<ALoc> alocs = getParamALocs(napi, i, env);
 
@@ -172,12 +226,12 @@ public class SummaryExporter extends CheckerBase {
                 values.addAll(decodeKSet(param.getDataType(), kSet, env,
                         String.format("Func %s Param %s %s",napi.getName(), param.getDataType().toString(), param.getName())));
             }
+            // phi所有解析出来的use
             call.operands.add(new Use(call, phiMerge(values, ret)));
         }
 
         // TODO: 处理varargs
 
-        // 处理完成call对象，将其加入到currentIrFunction中的instructions中并返回
         ret.add(call);
         return ret;
     }
@@ -247,36 +301,83 @@ public class SummaryExporter extends CheckerBase {
     public boolean check() {
         Logging.info("Exporting summaries for "+MyGlobalState.currentFunction.getName());
 
-        //
-
-
-
-
+        Map<Long, Map<NAPIValue, Context>> callSite2Records = new LinkedHashMap<>();
+        // 将同一处调用的NAPIValue合并
         for(Map.Entry<NAPIValue, Context> ent: MyGlobalState.napiManager.callsOrValues.entrySet()) {
-            NAPIValue napiValue = ent.getKey();
-            Context context = ent.getValue();
-            long callSiteAddr = napiValue.callSite;
-
-            Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSiteAddr));
-
-            Function napiFunc = napiValue.getApi();
-            if  (napiFunc == null) {
-                Logging.error("Cannot find called external function for 0x"+Long.toHexString(callSiteAddr));
-                continue;
+            long callSiteAddr = ent.getKey().callSite;
+            if (!callSite2Records.containsKey(callSiteAddr)) {
+                callSite2Records.put(callSiteAddr, new LinkedHashMap<>());
             }
+            // 按原顺序放在末尾
+            callSite2Records.get(callSiteAddr).put(ent.getKey(), ent.getValue());
 
-            AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSiteAddr));
-            if (absEnv == null) {
-                Logging.error("Cannot find absEnv for 0x"+Long.toHexString(callSiteAddr));
-                continue;
-            }
-
-            Call call = napiValue2Call(napiValue);
-            napiValue_Value_Map.put(napiValue, call);
-            // 解析参数，将其加入到currentIrFunction中的instructions中
-            currentIrFunction.addAll(decodeParams(caller, call, napiFunc, absEnv));
         }
-        // 解析返回值
+
+        // 逐个调用处理
+        Function currentCaller = null;
+        Call currentCallInst = null;
+
+
+
+        for(Map.Entry<Long, Map<NAPIValue, Context>> ent: callSite2Records.entrySet()) {
+
+            long callSiteAddr = ent.getKey();
+            Map<NAPIValue, Context> records = ent.getValue();
+
+            currentCaller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSiteAddr));
+            if (currentCaller == null) {
+                Logging.error("Cannot find caller for 0x"+Long.toHexString(callSiteAddr));
+                continue;
+            }
+
+            List<hust.cse.ohnapisummary.ir.Instruction> insts = new ArrayList<>();
+
+            // 首先处理记录调用和返回值的情况
+            for(Map.Entry<NAPIValue, Context> ent2: records.entrySet()) {
+                if (!ent2.getKey().isLocalValue()) {
+                    NAPIValue napiValue = ent2.getKey();
+                    Context context = ent2.getValue();
+                    Function napiFunc = napiValue.getApi();
+                    Logging.info("Decoding call to "+napiFunc.getName() + " at 0x"+Long.toHexString(callSiteAddr));
+                    if (napiFunc == null) {
+                        Logging.error("Cannot find called external function for 0x"+Long.toHexString(callSiteAddr));
+                        continue;
+                    }
+                    AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSiteAddr));
+                    if (absEnv == null) {
+                        Logging.error("Cannot find absEnv for 0x"+Long.toHexString(callSiteAddr));
+                        continue;
+                    }
+                    // 只解析一次参数
+                    currentCallInst = napiValue2Call(napiValue);
+                    currentCallInst.setNormalReturn();
+                    napiValue_Value_Map.put(napiValue, currentCallInst);
+                    insts.addAll(decodeParams(currentCaller, currentCallInst, napiFunc, absEnv));
+                    // 取出最后一个指令
+                    currentCallInst = (Call) insts.get(insts.size()-1);
+                } else {
+
+                    // 然后处理通过参数返回的返回值
+
+                    // 解析通过参数返回的返回值
+                    NAPIValue napiValue = ent2.getKey();
+                    // 复制一个currentCallInst对象
+                    Call newCallInst = napiValue2Call(napiValue);
+                    newCallInst.setIntrinsicReturn(napiValue.getRetIntoParamIndex());
+                    napiValue_Value_Map.put(napiValue, newCallInst);
+                    newCallInst.operands = currentCallInst.operands;
+                    insts.add(newCallInst);
+                }
+
+
+            }
+            // 然后处理通过参数返回的返回值
+
+            currentIrFunction.addAll(insts);
+
+        }
+
+        // 解析整个函数的返回值
         Function cur = MyGlobalState.currentFunction;
         if (!(cur.getReturnType() instanceof VoidDataType)) {
             boolean found = false;
@@ -361,4 +462,52 @@ public class SummaryExporter extends CheckerBase {
     }
 
 
+    private String decodeStr(AbsEnv env, AbsVal val) {
+        if (!val.getRegion().isGlobal()) {
+            Logging.warn("Cannot decode non global str ptr.");
+            return null;
+        }
+        long addr = val.getValue();
+        if (addr < 0x100) {
+            return null;
+        }
+        byte[] bs = null;
+        try {
+            bs = getStringFromMemory(GlobalState.flatAPI.toAddr(addr));
+        } catch (MemoryAccessException e) {
+            Logging.error("JNI char* decode failed! 0x"+Long.toHexString(addr));
+            return null;
+        }
+        if (bs == null) {
+            return null;
+        }
+        String s;
+        try {
+            Charset csets = StandardCharsets.UTF_8;
+            CharsetDecoder cd = csets.newDecoder();
+            CharBuffer r = cd.decode(ByteBuffer.wrap(bs));
+            s = r.toString();
+        } catch (CharacterCodingException e) {
+            s = Arrays.toString(bs);
+        }
+        return s;
+    }
+
+    public static byte[] getStringFromMemory(Address addr) throws MemoryAccessException {
+        MemoryBlock mb = GlobalState.currentProgram.getMemory().getBlock(addr);
+        if (mb == null) {
+            Logging.error("Cannot decode string at 0x"+addr.toString());
+            return null;
+        }
+        if (mb.isWrite()) {
+            Logging.error("Constant str not from readonly section!");
+        }
+        StringBuilder sb = new StringBuilder();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        while(mb.getByte(addr) != 0) {
+            out.write(mb.getByte(addr));
+            addr = addr.add(1);
+        }
+        return out.toByteArray();
+    }
 }

@@ -8,6 +8,8 @@ import ghidra.program.model.data.TypeDef;
 import javax.xml.crypto.Data;
 
 public enum TypeCategory {
+    // 不透明的值
+    IN_TRANSPARENT,
     NAPI_STATUS,
     NAPI_ENV,
     NAPI_CALLBACK_INFO,
