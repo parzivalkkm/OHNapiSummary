@@ -6,6 +6,7 @@ import com.bai.env.funcs.externalfuncs.ExternalFunctionBase;
 import com.bai.env.region.RegionBase;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
+import com.google.gson.Gson;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.VoidDataType;
@@ -59,10 +60,19 @@ public class SummaryExporter extends CheckerBase {
         new NumValueNamer().visitFunc(currentIrFunction);
         module.funcs.add(currentIrFunction);
 
+        hust.cse.ohnapisummary.ir.json.Function jsonFunc = new hust.cse.ohnapisummary.ir.json.Function(currentIrFunction);
+
+        Gson gson = new Gson();
+        String jsonString = gson.toJson(jsonFunc);
+
+
+
         currentIrFunction = null;
 
         napiValue_Value_Map = null;
     }
+
+
 
 
     /**
