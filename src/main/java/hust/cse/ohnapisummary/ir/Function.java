@@ -15,7 +15,7 @@ public class Function implements Serializable {
     public String name;
     public String signature;
 
-    List<Instruction> insts = new ArrayList<>();
+    public List<Instruction> insts = new ArrayList<>();
 
     public List<Param> params = new ArrayList<>();
     public Type returnType;
