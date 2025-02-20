@@ -109,7 +109,12 @@ public class FunctionModelManager {
             new NapiCreateInt64Function(),
 
             new NapiGetValueStringUtf8Function(),
-            new NapiCreateStringUtf8Function()
+            new NapiCreateStringUtf8Function(),
+
+            new NapiGetPropertyFunction(),
+            new NapiCallFunctionFunction(),
+            new NapiGetNamedPropertyFunction(),
+            new NapiLoadModuleWithInfoFunction()
 
 
     );

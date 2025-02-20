@@ -33,17 +33,29 @@ public class NapiGetValueStringUtf8Function extends NAPIFunctionBase {
         inOutEnv.set(retALoc, retKset, true);
 
         // 向buf写入
-        // TODO buffer
-        List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
-        Parameter param = calleeFunc.getParameter(2);
+        // TODO buffer 应该是什么都不用做
+
+//        List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
+//
+//        NAPIValue localNV = recordLocal(context, calleeFunc,2);
+//        KSet env = NAPIValueManager.getKSetForValue(TypeCategory.BUFFER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
+//        for (ALoc loc: alocs) {
+//            KSet ks = inOutEnv.get(loc);
+//            for (AbsVal val : ks) {
+//                ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
+//                inOutEnv.set(ptr, env, true);
+//            }
+//        }
+
+        List<ALoc> alocs = getParamALocs(calleeFunc, 4, inOutEnv);
+
+        NAPIValue localNV = recordLocal(context, calleeFunc,2);
+        KSet setForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
         for (ALoc loc: alocs) {
             KSet ks = inOutEnv.get(loc);
             for (AbsVal val : ks) {
                 ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-                NAPIValue localNV = recordLocal(context, calleeFunc,2);
-                KSet env = NAPIValueManager.getKSetForValue(TypeCategory.BUFFER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
-                assert env.getInnerSet().size() == 1;
-                inOutEnv.set(ptr, env, true);
+                inOutEnv.set(ptr, setForValue, true);
             }
         }
 

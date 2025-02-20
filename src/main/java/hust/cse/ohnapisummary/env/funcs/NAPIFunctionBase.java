@@ -53,9 +53,9 @@ public abstract class NAPIFunctionBase extends ExternalFunctionBase {
     }
 
     public static NAPIValue recordAllocCall(Context context, Function callFunc, Heap heap) {
-        NAPIValue jcs = recordCall(context, callFunc);
-        MyGlobalState.napiManager.heapMap.put(heap, jcs);
-        return jcs;
+        NAPIValue napiValue = recordCall(context, callFunc);
+        MyGlobalState.napiManager.heapMap.put(heap, napiValue);
+        return napiValue;
     }
 
     @Override
