@@ -49,8 +49,6 @@ public class NAPIValueManager {
         return ret | getMask();
     }
 
-    // Heap region map
-    public final Map<Heap, NAPIValue> heapMap = new HashMap<>();
 
     public void registerCall(NAPIValue napiValue, Context ctx) {
         callsOrValues.put(napiValue, ctx);
@@ -117,10 +115,29 @@ public class NAPIValueManager {
                 return KSet.getTop(newTaint);
             case BUFFER:
                 // TODO: 处理heap
+                KSet resKSet = new KSet(bits);
+                Heap allocChunk = Heap.getHeap(callSite, context, Heap.DEFAULT_SIZE, true);
+                resKSet = resKSet.insert(AbsVal.getPtr(allocChunk));
+                Logging.info("Returning heap region");
+                MyGlobalState.napiManager.heapMap.put(allocChunk, napiValue);
+
+                // set a tainted top at the beginning
+                newTaint = MyTaintMap.getTaints(napiValue);
+//                Logging.info("Allocating taint for "+(cur==null?"Param":cur.getName())+" "+ty.toString() + " " + context.toString());
+                KSet taintedTop = KSet.getTop(newTaint);
+                env.set(ALoc.getALoc(allocChunk, allocChunk.getBase(),  1), taintedTop, false);
+
+                return resKSet;
+
+
             case UNKNOWN:
         }
         return null;
     }
+
+
+    // Heap region map
+    public final Map<Heap, NAPIValue> heapMap = new HashMap<>();
 
 
 
