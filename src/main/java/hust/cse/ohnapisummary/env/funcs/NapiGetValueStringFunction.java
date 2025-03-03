@@ -2,7 +2,6 @@ package hust.cse.ohnapisummary.env.funcs;
 
 import com.bai.env.*;
 import ghidra.program.model.listing.Function;
-import ghidra.program.model.listing.Parameter;
 import ghidra.program.model.pcode.PcodeOp;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
@@ -12,20 +11,36 @@ import hust.cse.ohnapisummary.util.TypeCategory;
 import java.util.List;
 import java.util.Set;
 
-public class NapiGetValueStringUtf8Function extends NAPIFunctionBase {
-    public NapiGetValueStringUtf8Function() {
+public class NapiGetValueStringFunction extends NAPIFunctionBase{
+
+    public NapiGetValueStringFunction() {
         super(Set.of(
-            "napi_get_value_string_utf8"
+                // napi_status napi_get_value_string_utf8(napi_env env,
+                //                                       napi_value value,
+                //                                       char* buf,
+                //                                       size_t bufsize,
+                //                                       size_t* result);
+                "napi_get_value_string_utf8",
+
+                //NAPI_EXTERN napi_status napi_get_value_string_latin1(napi_env env,
+                //                                                     napi_value value,
+                //                                                     char* buf,
+                //                                                     size_t bufsize,
+                //                                                     size_t* result);
+                "napi_get_value_string_latin1",
+
+                //NAPI_EXTERN napi_status napi_get_value_string_utf16(napi_env env,
+                //                                                    napi_value value,
+                //                                                    char16_t* buf,
+                //                                                    size_t bufsize,
+                //                                                    size_t* result);
+                "napi_get_value_string_utf16"
         ));
     }
 
     @Override
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
-        // napi_status napi_get_value_string_utf8(napi_env env,
-        //                                       napi_value value,
-        //                                       char* buf,
-        //                                       size_t bufsize,
-        //                                       size_t* result);
+
         NAPIValue callNV = recordCall(context, calleeFunc); // 记录调用的nv
         // 处理返回值
         ALoc retALoc = getReturnALoc(calleeFunc, false);
@@ -47,9 +62,10 @@ public class NapiGetValueStringUtf8Function extends NAPIFunctionBase {
 //            }
 //        }
 
-        List<ALoc> alocs = getParamALocs(calleeFunc, 4, inOutEnv);
+        List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
 
         NAPIValue localNV = recordLocal(context, calleeFunc,2);
+        // TODO 不是number
         KSet setForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
         for (ALoc loc: alocs) {
             KSet ks = inOutEnv.get(loc);
@@ -58,6 +74,20 @@ public class NapiGetValueStringUtf8Function extends NAPIFunctionBase {
                 inOutEnv.set(ptr, setForValue, true);
             }
         }
+
+        alocs = getParamALocs(calleeFunc, 4, inOutEnv);
+
+        localNV = recordLocal(context, calleeFunc,4);
+        setForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
+        for (ALoc loc: alocs) {
+            KSet ks = inOutEnv.get(loc);
+            for (AbsVal val : ks) {
+                ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
+                inOutEnv.set(ptr, setForValue, true);
+            }
+        }
+
+
 
 
     }

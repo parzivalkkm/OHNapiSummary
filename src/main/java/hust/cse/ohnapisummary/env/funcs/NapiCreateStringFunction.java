@@ -1,10 +1,7 @@
 package hust.cse.ohnapisummary.env.funcs;
 
 import com.bai.env.*;
-import com.bai.env.region.Global;
-import ghidra.program.model.data.DataType;
 import ghidra.program.model.listing.Function;
-import ghidra.program.model.listing.Parameter;
 import ghidra.program.model.pcode.PcodeOp;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
@@ -14,19 +11,33 @@ import hust.cse.ohnapisummary.util.TypeCategory;
 import java.util.List;
 import java.util.Set;
 
-public class NapiCreateStringUtf8Function extends NAPIFunctionBase {
-    public NapiCreateStringUtf8Function() {
+public class NapiCreateStringFunction extends NAPIFunctionBase {
+
+    public NapiCreateStringFunction() {
         super(Set.of(
-            "napi_create_string_utf8"
+                // napi_status napi_create_string_utf8(napi_env env,
+                //                                    const char* str,
+                //                                    size_t length,
+                //                                    napi_value* result);
+                "napi_create_string_utf8",
+
+                //NAPI_EXTERN napi_status napi_create_string_latin1(napi_env env,
+                //                                                  const char* str,
+                //                                                  size_t length,
+                //                                                  napi_value* result);
+                "napi_create_string_latin1",
+
+                //NAPI_EXTERN napi_status napi_create_string_utf16(napi_env env,
+                //                                                 const char16_t* str,
+                //                                                 size_t length,
+                //                                                 napi_value* result);
+                "napi_create_string_utf16"
         ));
     }
 
     @Override
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
-        // napi_status napi_create_string_utf8(napi_env env,
-        //                                    const char* str,
-        //                                    size_t length,
-        //                                    napi_value* result);
+
 
         NAPIValue callNV = recordCall(context, calleeFunc); // 记录调用的nv
         // 处理返回值
@@ -36,7 +47,7 @@ public class NapiCreateStringUtf8Function extends NAPIFunctionBase {
 
         // 向result中插入一个抽象值
         List<ALoc> alocs = getParamALocs(calleeFunc, 3, inOutEnv);
-        NAPIValue localNV = recordLocal(context, calleeFunc, 2);
+        NAPIValue localNV = recordLocal(context, calleeFunc, 3);
         KSet env = NAPIValueManager.getKSetForValue(TypeCategory.NAPI_VALUE, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize *8, calleeFunc, context, inOutEnv);
 
         for (ALoc loc: alocs) {

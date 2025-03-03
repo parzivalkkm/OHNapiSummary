@@ -16,6 +16,15 @@ public class NapiDefinePropertiesFunction extends NAPIFunctionBase{
 
     @Override
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
+
+        // NAPI_EXTERN napi_status
+        //napi_define_properties(napi_env env,
+        //                       napi_value object,
+        //                       size_t property_count,
+        //                       const napi_property_descriptor* properties);
+
+        // TODO 处理注册有关问题
+
         NAPIValue nv = NAPIFunctionBase.recordCall(context, calleeFunc);
 
     }

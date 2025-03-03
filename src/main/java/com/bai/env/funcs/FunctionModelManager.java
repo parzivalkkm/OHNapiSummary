@@ -99,17 +99,12 @@ public class FunctionModelManager {
 
             new NapiGetCallBackInfo(),
 
-            new NapiGetValueDoubleFunction(),
-            new NapiCreateDoubleFunction(),
-            new NapiGetValueInt32Function(),
-            new NapiCreateInt32Function(),
-            new NapiGetValueUint32Function(),
-            new NapiCreateUint32Function(),
-            new NapiGetValueInt64Function(),
-            new NapiCreateInt64Function(),
 
-            new NapiGetValueStringUtf8Function(),
-            new NapiCreateStringUtf8Function(),
+            new NapiCreateNumberFunction(),
+            new NapiGetValueNuberFunction(),
+
+            new NapiCreateStringFunction(),
+            new NapiGetValueStringFunction(),
 
             new NapiGetPropertyFunction(),
             new NapiCallFunctionFunction(),

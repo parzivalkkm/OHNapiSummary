@@ -16,6 +16,10 @@ public class NapiSetNamedPropertyFunction extends NAPIFunctionBase {
 
     @Override
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
+        // NAPI_EXTERN napi_status napi_set_named_property(napi_env env,
+        //                                          napi_value object,
+        //                                          const char* utf8name,
+        //                                          napi_value value);
         NAPIValue nv = NAPIFunctionBase.recordCall(context, calleeFunc);
     }
 }

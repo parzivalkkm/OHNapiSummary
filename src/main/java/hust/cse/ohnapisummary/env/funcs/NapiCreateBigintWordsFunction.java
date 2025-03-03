@@ -16,6 +16,15 @@ public class NapiCreateBigintWordsFunction  extends NAPIFunctionBase {
 
     @Override
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
+
+        //NAPI_EXTERN napi_status napi_create_bigint_words(napi_env env,
+        //                                                 int sign_bit,
+        //                                                 size_t word_count,
+        //                                                 const uint64_t* words,
+        //                                                 napi_value* result);
+
         NAPIValue nv = NAPIFunctionBase.recordCall(context, calleeFunc);
+
+        // TODO 要对heap进行建模？
     }
 }

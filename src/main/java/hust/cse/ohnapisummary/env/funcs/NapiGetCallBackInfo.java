@@ -25,8 +25,6 @@ public class NapiGetCallBackInfo extends NAPIFunctionBase{
     public NapiGetCallBackInfo() {
         super(Set.of(
                 "napi_get_cb_info"
-//                "napi_get_value_double",
-//                "napi_create_double"
 
         ));
     }

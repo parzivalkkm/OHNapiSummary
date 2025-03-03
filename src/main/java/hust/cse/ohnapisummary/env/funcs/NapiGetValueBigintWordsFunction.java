@@ -17,5 +17,7 @@ public class NapiGetValueBigintWordsFunction extends NAPIFunctionBase {
     @Override
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
         NAPIValue nv = NAPIFunctionBase.recordCall(context, calleeFunc);
+
+        // TODO 对连续内存进行建模？
     }
 }
