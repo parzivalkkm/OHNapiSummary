@@ -1,18 +1,11 @@
-package hust.cse.ohnapisummary.env.funcs;
+package hust.cse.ohnapisummary.env.funcs.functions;
 
 import com.bai.env.*;
 import com.bai.env.region.RegionBase;
-import com.bai.util.GlobalState;
 import com.bai.util.Logging;
-import com.caucho.hessian4.io.LocaleHandle;
-import ghidra.pcodeCPort.address.Address;
-import ghidra.program.model.data.DataType;
-import ghidra.program.model.lang.PrototypeModel;
 import ghidra.program.model.listing.Function;
-import ghidra.program.model.listing.Parameter;
-import ghidra.program.model.listing.VariableStorage;
 import ghidra.program.model.pcode.PcodeOp;
-import ghidra.program.model.pcode.Varnode;
+import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
 import hust.cse.ohnapisummary.util.NAPIValueManager;
@@ -21,7 +14,7 @@ import hust.cse.ohnapisummary.util.TypeCategory;
 import java.util.List;
 import java.util.Set;
 
-public class NapiGetCallBackInfo extends NAPIFunctionBase{
+public class NapiGetCallBackInfo extends NAPIFunctionBase {
     public NapiGetCallBackInfo() {
         super(Set.of(
                 "napi_get_cb_info"

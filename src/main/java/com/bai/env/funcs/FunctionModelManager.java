@@ -39,7 +39,20 @@ import com.bai.util.Logging;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Namespace;
-import hust.cse.ohnapisummary.env.funcs.*;
+import hust.cse.ohnapisummary.env.funcs.functions.NapiCallFunctionFunction;
+import hust.cse.ohnapisummary.env.funcs.functions.NapiCreateFunctionFunction;
+import hust.cse.ohnapisummary.env.funcs.functions.NapiGetCallBackInfo;
+import hust.cse.ohnapisummary.env.funcs.misc.NapiGetDefinedSingletonsFunction;
+import hust.cse.ohnapisummary.env.funcs.misc.NapiLoadModuleWithInfoFunction;
+import hust.cse.ohnapisummary.env.funcs.misc.NapiModuleRegisterFunction;
+import hust.cse.ohnapisummary.env.funcs.nubers.NapiCreateNumberFunction;
+import hust.cse.ohnapisummary.env.funcs.nubers.NapiGetValueNuberFunction;
+import hust.cse.ohnapisummary.env.funcs.objects.NapiDefinePropertiesFunction;
+import hust.cse.ohnapisummary.env.funcs.objects.NapiGetNamedPropertyFunction;
+import hust.cse.ohnapisummary.env.funcs.objects.NapiGetPropertyFunction;
+import hust.cse.ohnapisummary.env.funcs.objects.NapiSetNamedPropertyFunction;
+import hust.cse.ohnapisummary.env.funcs.strings.NapiCreateStringFunction;
+import hust.cse.ohnapisummary.env.funcs.strings.NapiGetValueStringFunction;
 
 import java.util.HashMap;
 import java.util.List;
@@ -105,6 +118,8 @@ public class FunctionModelManager {
 
             new NapiCreateStringFunction(),
             new NapiGetValueStringFunction(),
+
+            new NapiGetDefinedSingletonsFunction(),
 
             new NapiGetPropertyFunction(),
             new NapiCallFunctionFunction(),

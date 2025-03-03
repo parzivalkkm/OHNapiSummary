@@ -1,9 +1,10 @@
-package hust.cse.ohnapisummary.env.funcs;
+package hust.cse.ohnapisummary.env.funcs.nubers;
 
 import com.bai.env.AbsEnv;
 import com.bai.env.Context;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
+import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
 import hust.cse.ohnapisummary.util.NAPIValue;
 import java.util.Set;
 

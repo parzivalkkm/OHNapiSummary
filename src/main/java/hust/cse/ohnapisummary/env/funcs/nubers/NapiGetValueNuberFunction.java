@@ -1,8 +1,9 @@
-package hust.cse.ohnapisummary.env.funcs;
+package hust.cse.ohnapisummary.env.funcs.nubers;
 
 import com.bai.env.*;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
+import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
 import hust.cse.ohnapisummary.util.NAPIValueManager;
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class NapiGetValueNuberFunction extends NAPIFunctionBase{
+public class NapiGetValueNuberFunction extends NAPIFunctionBase {
 
     public NapiGetValueNuberFunction() {
         super(Set.of(

@@ -1,9 +1,10 @@
 
-package hust.cse.ohnapisummary.env.funcs;
+package hust.cse.ohnapisummary.env.funcs.objects;
 
 import com.bai.env.*;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
+import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
 import hust.cse.ohnapisummary.util.NAPIValueManager;
@@ -12,7 +13,7 @@ import hust.cse.ohnapisummary.util.TypeCategory;
 import java.util.List;
 import java.util.Set;
 
-public class NapiGetPropertyFunction extends NAPIFunctionBase{
+public class NapiGetPropertyFunction extends NAPIFunctionBase {
     public NapiGetPropertyFunction() {
         super(Set.of(
                 "napi_get_property"
