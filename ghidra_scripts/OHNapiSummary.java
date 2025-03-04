@@ -25,6 +25,7 @@ import ghidra.program.model.symbol.Reference;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -112,7 +113,9 @@ public class OHNapiSummary extends BinAbsInspector {
             println("Analysis spent "+durationOne+" ms for "+e.getKey().getName());
         }
 
-
+        // 将IR写入到文件中
+        FileWriter writer = new FileWriter(exe_path + ".ir.json");
+        MyGlobalState.se.export(writer);
 
         long duration = System.currentTimeMillis() - start;
 

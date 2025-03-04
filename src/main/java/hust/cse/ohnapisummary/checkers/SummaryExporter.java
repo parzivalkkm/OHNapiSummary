@@ -38,6 +38,8 @@ import hust.cse.ohnapisummary.util.NAPIValueManager;
 import hust.cse.ohnapisummary.util.TypeCategory;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileWriter;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -47,7 +49,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class SummaryExporter extends CheckerBase {
-    Module module = new Module();
+    hust.cse.ohnapisummary.ir.json.Module module = new hust.cse.ohnapisummary.ir.json.Module();
     hust.cse.ohnapisummary.ir.Function currentIrFunction = new hust.cse.ohnapisummary.ir.Function();
 
     Map<NAPIValue, Value> napiValue_Value_Map;
@@ -63,18 +65,34 @@ public class SummaryExporter extends CheckerBase {
 
     public void onFinishFunc() {
         new NumValueNamer().visitFunc(currentIrFunction);
-        module.funcs.add(currentIrFunction);
+//        module.funcs.add(currentIrFunction);
 
         hust.cse.ohnapisummary.ir.json.Function jsonFunc = new hust.cse.ohnapisummary.ir.json.Function(currentIrFunction);
+
+        module.allFunctions.add(jsonFunc);
 
         Gson gson = new Gson();
         String jsonString = gson.toJson(jsonFunc);
 
-
-
         currentIrFunction = null;
 
         napiValue_Value_Map = null;
+    }
+
+    public void export(FileWriter fw) {
+
+        module.moduleName = MyGlobalState.moduleName;
+        Gson gson = new Gson();
+
+        String jsonString = gson.toJson(module);
+        // 写入到文件里
+        try {
+            fw.write(jsonString);
+            fw.flush();
+        } catch (Exception e) {
+            Logging.error("Cannot write to file: "+e.getMessage());
+        }
+
     }
 
 
