@@ -58,6 +58,12 @@ public abstract class NAPIFunctionBase extends ExternalFunctionBase {
         return napiValue;
     }
 
+    public static NAPIValue recordAllocLocalCall(Context context, Function callFunc, Heap heap, int retIntoParamIndex) {
+        NAPIValue napiValue = recordLocal(context, callFunc, retIntoParamIndex);
+        MyGlobalState.napiManager.heapMap.put(heap, napiValue);
+        return napiValue;
+    }
+
     @Override
     public void invoke(PcodeOp pcode, AbsEnv inOutEnv, AbsEnv tmpEnv, Context context, Function calleeFunc) {
 

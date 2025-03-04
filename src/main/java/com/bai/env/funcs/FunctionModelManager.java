@@ -48,9 +48,10 @@ import hust.cse.ohnapisummary.env.funcs.misc.NapiModuleRegisterFunction;
 import hust.cse.ohnapisummary.env.funcs.nubers.NapiCreateNumberFunction;
 import hust.cse.ohnapisummary.env.funcs.nubers.NapiGetValueNuberFunction;
 import hust.cse.ohnapisummary.env.funcs.objects.NapiDefinePropertiesFunction;
-import hust.cse.ohnapisummary.env.funcs.objects.NapiGetNamedPropertyFunction;
-import hust.cse.ohnapisummary.env.funcs.objects.NapiGetPropertyFunction;
-import hust.cse.ohnapisummary.env.funcs.objects.NapiSetNamedPropertyFunction;
+import hust.cse.ohnapisummary.env.funcs.arrays.NapiElementFunctions;
+import hust.cse.ohnapisummary.env.funcs.objects.NapiGetPrototypeFunction;
+import hust.cse.ohnapisummary.env.funcs.objects.NapiPropertyFunctions;
+import hust.cse.ohnapisummary.env.funcs.sinks.NapiLogFunction;
 import hust.cse.ohnapisummary.env.funcs.strings.NapiCreateStringFunction;
 import hust.cse.ohnapisummary.env.funcs.strings.NapiGetValueStringFunction;
 
@@ -104,27 +105,41 @@ public class FunctionModelManager {
             new PutsFunction(),
 
             // NAPI functions
-            // TODO: add NAPI functions
+            // 注册相关
             new NapiDefinePropertiesFunction(),
             new NapiCreateFunctionFunction(),
             new NapiModuleRegisterFunction(),
-            new NapiSetNamedPropertyFunction(),
 
+
+            // 函数相关
             new NapiGetCallBackInfo(),
 
+            new NapiCallFunctionFunction(),
+            new NapiLoadModuleWithInfoFunction(),
 
+            // 数值相关
             new NapiCreateNumberFunction(),
             new NapiGetValueNuberFunction(),
 
+            // 字符串相关
             new NapiCreateStringFunction(),
             new NapiGetValueStringFunction(),
 
-            new NapiGetDefinedSingletonsFunction(),
+            // object相关
 
-            new NapiGetPropertyFunction(),
-            new NapiCallFunctionFunction(),
-            new NapiGetNamedPropertyFunction(),
-            new NapiLoadModuleWithInfoFunction()
+            new NapiElementFunctions(),
+            new NapiGetPrototypeFunction(),
+            new NapiPropertyFunctions(),
+
+            // sink
+
+            new NapiLogFunction(),
+
+            // 杂项
+            new NapiGetDefinedSingletonsFunction()
+
+
+
 
 
     );

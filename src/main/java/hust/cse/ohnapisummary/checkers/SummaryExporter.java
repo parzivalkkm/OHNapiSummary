@@ -10,9 +10,14 @@ import com.google.gson.Gson;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.VoidDataType;
+import ghidra.program.model.lang.PrototypeModel;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
+import ghidra.program.model.pcode.HighFunction;
+import ghidra.program.model.pcode.PcodeOp;
+import ghidra.program.model.pcode.PcodeOpAST;
+import ghidra.program.model.pcode.Varnode;
 import hust.cse.ohnapisummary.ir.Module;
 import hust.cse.ohnapisummary.ir.NumValueNamer;
 import hust.cse.ohnapisummary.ir.inst.Call;
@@ -226,8 +231,12 @@ public class SummaryExporter extends CheckerBase {
 
             // TODO: 处理va_list
             if (i == (paramSize-1) && isVaListAPI(call.target)){
-                Logging.debug("encounter va_list");
+                // 如果是最后一个参数，且这个api是va_list的
+                // 那么对这个参数进行特殊处理
+                Logging.info("encounter va_list");
             }
+
+
 
             // 解析参数
             List<Value> values = new ArrayList<>();
@@ -241,6 +250,73 @@ public class SummaryExporter extends CheckerBase {
         }
 
         // TODO: 处理varargs
+
+        if (napi.hasVarArgs()) {
+            // 获取额外参数个数
+            int totalArgNum = paramSize;
+            HighFunction highFunc = null;
+            if (caller != null) {
+                highFunc = MyGlobalState.decom.decompileFunction(caller);
+            }
+            if (highFunc == null) {
+                Logging.error("Decompilation for vararg failed.");
+            } else {
+                Iterator<PcodeOpAST> ops = highFunc.getPcodeOps(GlobalState.flatAPI.toAddr(call.callsite));
+                for (Iterator<PcodeOpAST> it = ops; it.hasNext(); ) {
+                    PcodeOpAST op = it.next();
+                    int opcode = op.getOpcode();
+                    // 跳过非call的指令
+                    if (opcode <  PcodeOp.CALL || opcode > PcodeOp.CALLOTHER) {
+                        continue;
+                    }
+//                    Logging.info(String.format("vararg call: \n  %s\ndecomp pcode: %s", call.toString(),
+//                            MyGlobalState.pp.printOneWithAddr(op)));
+                    Varnode[] ins = op.getInputs();
+                    // 跳过那个call pcode指令的目标地址参数
+                    totalArgNum = ins.length - 1;
+                    Logging.info(String.format("Vararg call arg count at 0x%s: total %s, additional %s.",
+                            Long.toHexString(call.callsite),
+                            totalArgNum,
+                            totalArgNum - paramSize));
+                }
+            }
+            int startInd = paramSize;
+            PrototypeModel cc = napi.getCallingConvention();
+            if (cc == null) {
+                cc = GlobalState.currentProgram.getCompilerSpec().getDefaultCallingConvention();
+            }
+            for(int i=startInd;i<totalArgNum;i++) {
+                VariableStorage vs = cc.getArgLocation(i, params, null, GlobalState.currentProgram);
+                assert vs.getVarnodeCount() == 1;
+                Varnode node = vs.getLastVarnode();
+                KSet ks = null;
+                if (node != null) {
+                    ALoc loc = null;
+                    if (node.getAddress().isStackAddress()) {
+                        AbsVal sp = getExactSpVal(env);
+                        if (sp != null) {
+                            loc = ALoc.getALoc(sp.getRegion(), sp.getValue()+node.getOffset(), MyGlobalState.defaultPointerSize);
+                        } else {
+                            Logging.warn(String.format("vararg no exact sp for %s at (%s)", napi.getName(), describeAddr(call.callsite)));
+                        }
+                    } else {
+                        if (node.getSize() < MyGlobalState.defaultPointerSize) {
+                            node = new Varnode(node.getAddress(), MyGlobalState.defaultPointerSize);
+                        }
+                        loc = ALoc.getALoc(node);
+
+                    }
+
+                    if (loc != null) {
+                        ks = env.get(loc);
+                    }
+                }
+                List<Value> v = decodeKSet(null, ks, env,
+                        String.format("Func %s additional Param at: %s",napi.getName(), MyGlobalState.pp.printVarnode(node)));
+                call.operands.add(new Use(call, phiMerge(v, ret)));
+            }
+
+        }
 
         ret.add(call);
         return ret;
@@ -520,4 +596,18 @@ public class SummaryExporter extends CheckerBase {
         }
         return out.toByteArray();
     }
+
+    public static AbsVal getExactSpVal(AbsEnv env) {
+        KSet sp = env.get(ALoc.getSPALoc());
+        if (sp.isTop() || sp.getInnerSet().size() > 1 || sp.getInnerSet().size() == 0) {
+            return null;
+        }
+        AbsVal val = sp.iterator().next();
+        if (val.getRegion().isLocal()) {
+            return val;
+        }
+        return null;
+    }
+
+
 }

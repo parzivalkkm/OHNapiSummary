@@ -186,6 +186,21 @@ public class EnvSetup {
         } else {
             setSigAndThunkInBlock(blk, fname2sig);
         }
+
+        Map<String, FunctionDefinition> fname2siglog = getFuncDefMap(getModuleDataTypeManager(flatAPI, "log"), "/log.h/functions");
+        script.println("Applying extern function signatures");
+        MemoryBlock pltblklog = flatAPI.getMemoryBlock(".plt");
+        if (pltblk == null) {
+            script.println("ERROR: cannot find memory block for plt section.");
+        } else {
+            setSigAndThunkInBlock(pltblklog, fname2siglog);
+        }
+        MemoryBlock blklog = flatAPI.getMemoryBlock(MemoryBlock.EXTERNAL_BLOCK_NAME);
+        if (blk == null) {
+            script.println("ERROR: cannot find memory block for external section.");
+        } else {
+            setSigAndThunkInBlock(blklog, fname2siglog);
+        }
     }
 
 }
