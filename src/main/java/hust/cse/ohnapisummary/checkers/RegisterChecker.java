@@ -35,6 +35,7 @@ public class RegisterChecker  extends CheckerBase {
 
     @Override
     public boolean check() {
+        Logging.info("Checking Register Function");
         for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callsOrValues.entrySet()) {
             if (entry.getKey().isRegisterFunction()) {
                 NAPIValue napiValue = entry.getKey();

@@ -64,6 +64,7 @@ public class OHNapiSummary extends BinAbsInspector {
             Function caller = GlobalState.flatAPI.getFunctionContaining(fromAddress);
 
             if (callee == null || caller == null) {
+                Logging.error("Cannot find function at " + toAddress + " or " + fromAddress);
                 continue;
             }
             Logging.info(fromAddress + ": " + caller.getName() + " -> " + toAddress + ": " + callee.getName());
@@ -71,6 +72,10 @@ public class OHNapiSummary extends BinAbsInspector {
             break;
         }
 
+        if (MyGlobalState.moduleInitFunc == null) {
+            Logging.error("No module init function found.");
+            return;
+        }
         run4ModuleInitFunction(MyGlobalState.moduleInitFunc);
 
 
@@ -132,10 +137,10 @@ public class OHNapiSummary extends BinAbsInspector {
             GlobalState.ghidraScript = this;
             GlobalState.config = new Config();
             GlobalState.config.setGUI(true); // TODO change
-            // change config here
-            GlobalState.config.setEnableZ3(false);
 
         }
+
+        GlobalState.config.setEnableZ3(false);
 
         GlobalState.config.clearCheckers();
         GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
@@ -186,10 +191,10 @@ public class OHNapiSummary extends BinAbsInspector {
             GlobalState.ghidraScript = this;
             GlobalState.config = new Config();
             GlobalState.config.setGUI(true); // TODO change
-            // change config here
-            GlobalState.config.setEnableZ3(false);
 
         }
+
+        GlobalState.config.setEnableZ3(false);
 
         GlobalState.config.clearCheckers();
         GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
@@ -241,9 +246,9 @@ public class OHNapiSummary extends BinAbsInspector {
             GlobalState.ghidraScript = this;
             GlobalState.config = new Config();
             GlobalState.config.setGUI(true); // TODO change
-            // change config here
-            GlobalState.config.setEnableZ3(false);
+
         }
+        GlobalState.config.setEnableZ3(false);
 //        GlobalState.config.setDebug(true);
         GlobalState.config.clearCheckers();
         GlobalState.config.setEntryAddress("0x"+Long.toHexString(f.getEntryPoint().getOffset()));
