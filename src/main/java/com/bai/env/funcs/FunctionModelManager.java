@@ -39,18 +39,18 @@ import com.bai.util.Logging;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Namespace;
+import hust.cse.ohnapisummary.env.funcs.arrays.NapiArrayFunction;
+import hust.cse.ohnapisummary.env.funcs.arrays.NapiDataviewFunction;
+import hust.cse.ohnapisummary.env.funcs.arrays.NapiTypedArrayFunction;
+import hust.cse.ohnapisummary.env.funcs.buffer.NapiBufferFunction;
 import hust.cse.ohnapisummary.env.funcs.functions.NapiCallFunctionFunction;
 import hust.cse.ohnapisummary.env.funcs.functions.NapiCreateFunctionFunction;
 import hust.cse.ohnapisummary.env.funcs.functions.NapiGetCallBackInfo;
-import hust.cse.ohnapisummary.env.funcs.misc.NapiGetDefinedSingletonsFunction;
-import hust.cse.ohnapisummary.env.funcs.misc.NapiLoadModuleWithInfoFunction;
-import hust.cse.ohnapisummary.env.funcs.misc.NapiModuleRegisterFunction;
+import hust.cse.ohnapisummary.env.funcs.misc.*;
 import hust.cse.ohnapisummary.env.funcs.nubers.NapiCreateNumberFunction;
 import hust.cse.ohnapisummary.env.funcs.nubers.NapiGetValueNuberFunction;
-import hust.cse.ohnapisummary.env.funcs.objects.NapiDefinePropertiesFunction;
+import hust.cse.ohnapisummary.env.funcs.objects.*;
 import hust.cse.ohnapisummary.env.funcs.arrays.NapiElementFunctions;
-import hust.cse.ohnapisummary.env.funcs.objects.NapiGetPrototypeFunction;
-import hust.cse.ohnapisummary.env.funcs.objects.NapiPropertyFunctions;
 import hust.cse.ohnapisummary.env.funcs.sinks.NapiLogFunction;
 import hust.cse.ohnapisummary.env.funcs.strings.NapiCreateStringFunction;
 import hust.cse.ohnapisummary.env.funcs.strings.NapiGetValueStringFunction;
@@ -105,17 +105,16 @@ public class FunctionModelManager {
             new PutsFunction(),
 
             // NAPI functions
+
             // 注册相关
             new NapiDefinePropertiesFunction(),
             new NapiCreateFunctionFunction(),
             new NapiModuleRegisterFunction(),
 
-
             // 函数相关
             new NapiGetCallBackInfo(),
 
             new NapiCallFunctionFunction(),
-            new NapiLoadModuleWithInfoFunction(),
 
             // 数值相关
             new NapiCreateNumberFunction(),
@@ -130,15 +129,28 @@ public class FunctionModelManager {
             new NapiElementFunctions(),
             new NapiGetPrototypeFunction(),
             new NapiPropertyFunctions(),
+            new NapiObjectFunctions(),
+//            new NapiSymbolFunctions(),
+
+
+            // array相关
+            new NapiArrayFunction(),
+            new NapiDataviewFunction(),
+            new NapiElementFunctions(),
+            new NapiTypedArrayFunction(),
+
+            // buffer相关
+            new NapiBufferFunction(),
 
             // sink
-
             new NapiLogFunction(),
 
             // 杂项
+            new NapiGetDefinedSingletonsFunction(),
+            new NapiLoadModuleWithInfoFunction(),
+            new NapiCoerceFunction(),
+            new NapiDateFunction(),
             new NapiGetDefinedSingletonsFunction()
-
-
 
 
 
