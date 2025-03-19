@@ -64,7 +64,10 @@ public class NapiGetValueStringFunction extends NAPIFunctionBase {
 //        }
 
         List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
-
+        // TODO 如果传入的是null，那就没有必要记录了
+//        if (alocs.size() == 0) {
+//            return;
+//        }
         NAPIValue localNV = recordLocal(context, calleeFunc,2);
         // TODO 不是number 暂且标记为不透明值吧
         KSet setForValue = NAPIValueManager.getKSetForValue(TypeCategory.IN_TRANSPARENT, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);

@@ -51,6 +51,7 @@ public class OHNapiSummary extends BinAbsInspector {
             return;
         }
 
+        // TODO: 改为从init段中获取Register函数
         // 寻找调用napi_module_register的注册函数
         List<Reference> references = Utils.getReferences(List.of("napi_module_register"));
         if (references.isEmpty()) {
