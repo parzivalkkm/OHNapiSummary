@@ -16,7 +16,7 @@ import java.util.Map;
 public class Function {
 
     public Function(hust.cse.ohnapisummary.ir.Function irFunc) {
-        // 名词
+        // 名称
         this.name = irFunc.name;
 
         // 参数
@@ -40,6 +40,7 @@ public class Function {
                     lastCallInst = new CallInst();
 
                     lastCallInst.target = call.target;
+                    lastCallInst.callsite = String.valueOf(callsite);
                     for(hust.cse.ohnapisummary.ir.utils.Use use: call.operands) {
                         lastCallInst.operands.add(getValueName(use.value));
                     }
@@ -56,6 +57,7 @@ public class Function {
                     lastCallInst = new CallInst();
 
                     lastCallInst.target = call.target;
+                    lastCallInst.callsite = String.valueOf(callsite);
                     // 将操作数添加至lastCallInst
                     for(hust.cse.ohnapisummary.ir.utils.Use use: call.operands) {
                         lastCallInst.operands.add(getValueName(use.value));
@@ -126,12 +128,18 @@ public class Function {
         CallInst() {
             type = "Call";
         }
+
+        @SerializedName("callsite")
+        String callsite;
+
         @SerializedName("target")
         String target;
-        @SerializedName("rets")
-        Map<String, String> rets = new LinkedHashMap<>();
+
         @SerializedName("operands")
         List<String> operands = new ArrayList<>();
+
+        @SerializedName("rets")
+        Map<String, String> rets = new LinkedHashMap<>();
 
     }
 
