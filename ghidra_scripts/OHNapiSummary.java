@@ -11,12 +11,17 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonReader;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.data.DataTypeManager;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
+import ghidra.program.model.symbol.SourceType;
 import ghidra.util.exception.CancelledException;
 import hust.cse.ohnapisummary.checkers.ModuleInitChecker;
 import hust.cse.ohnapisummary.checkers.RegisterChecker;
+import hust.cse.ohnapisummary.ir.utils.Type;
+import hust.cse.ohnapisummary.ir.value.Param;
+import hust.cse.ohnapisummary.mapping.NAPIDescriptor;
 import hust.cse.ohnapisummary.mapping.NAPIJsonParser;
 import hust.cse.ohnapisummary.util.EnvSetup;
 import hust.cse.ohnapisummary.util.MyGlobalState;
@@ -79,20 +84,7 @@ public class OHNapiSummary extends BinAbsInspector {
         }
         run4ModuleInitFunction(MyGlobalState.moduleInitFunc);
 
-
-        // 读取 arkts字节码端 pre analysisi阶段获取的json格式函数信息
-        String exe_path = getCurrentProgram().getExecutablePath();
-        File binary = new File(exe_path);
-        File jp = new File(exe_path + ".funcs.json");
-        if (! jp.exists()) {
-            exe_path = Paths.get(getProjectRootFolder().getProjectLocator().getLocation(), "..", binary.getName()).toString();
-            jp = new File(exe_path + ".funcs.json");
-        }
-        JsonReader reader = new JsonReader(new FileReader(jp));
-        JsonObject arktsFuncInfoJson = new Gson().fromJson(reader, JsonObject.class);
-
-        NAPIJsonParser jsonParser = new NAPIJsonParser(this, this, EnvSetup.getModuleDataTypeManager(this, "node_api_all"));
-        ArrayList<Map.Entry<Function, hust.cse.ohnapisummary.ir.Function>> functionsToAnalyze = jsonParser.run(arktsFuncInfoJson);
+        ArrayList<Map.Entry<Function, hust.cse.ohnapisummary.ir.Function>> functionsToAnalyze = getFunctionsToAnalyze();
 
         for(int i=0;i<functionsToAnalyze.size();i++) {
             Map.Entry<Function, hust.cse.ohnapisummary.ir.Function> e = functionsToAnalyze.get(i);
@@ -120,12 +112,46 @@ public class OHNapiSummary extends BinAbsInspector {
         }
 
         // 将IR写入到文件中
+        String exe_path = Paths.get(getCurrentProgram().getExecutablePath()).toString();
         FileWriter writer = new FileWriter(exe_path + ".ir.json");
         MyGlobalState.se.export(writer);
 
         long duration = System.currentTimeMillis() - start;
 
         println("OHNapiSummary script execution time: " + duration + "ms.");
+    }
+
+    private ArrayList<Map.Entry<Function, hust.cse.ohnapisummary.ir.Function>> getFunctionsToAnalyze() throws Exception {
+
+        DataTypeManager manager = EnvSetup.getModuleDataTypeManager(this, "node_api_all");
+        ArrayList<Map.Entry<Function, hust.cse.ohnapisummary.ir.Function>> functionsToAnalyze = new ArrayList<>();
+        for (NAPIDescriptor desc: MyGlobalState.dynRegNAPIList) {
+            Function f = this.getFunctionAt(desc.napi_callbback_method);
+            hust.cse.ohnapisummary.ir.Function irFunc = new hust.cse.ohnapisummary.ir.Function();
+
+            if (f != null) {
+                irFunc.name = desc.utf8name;
+                irFunc.params.add(new Param("a1", new Type(null).setTypeDef("napi_env")));
+                irFunc.params.add(new Param("a2", new Type(null).setTypeDef("napi_callback_info")));
+                irFunc.returnType = new Type(null).setTypeDef("napi_value");
+
+                if (f.getParameterCount() == 0) {
+                    // TODO：为函数f添加参数及返回值（都是napi_env env, napi_callback_info info）
+                    Parameter[] paramsToSet = new Parameter[2];
+                    paramsToSet[0] = new ParameterImpl("env", manager.getDataType("/node_api_all.h/napi_env"), this.getCurrentProgram(), SourceType.USER_DEFINED);
+                    paramsToSet[1] = new ParameterImpl("info", manager.getDataType("/node_api_all.h/napi_callback_info"), this.getCurrentProgram(), SourceType.USER_DEFINED);
+                    // TODO：为函数f添加返回值（napi_value）
+                    Parameter returnTypeToSet = new ReturnParameterImpl(manager.getDataType("/node_api_all.h/napi_value"), this.getCurrentProgram());
+                    // 更新函数
+                    f.updateFunction(null, returnTypeToSet, Function.FunctionUpdateType.DYNAMIC_STORAGE_FORMAL_PARAMS, true, SourceType.USER_DEFINED, paramsToSet);
+
+                }
+                functionsToAnalyze.add(Map.entry(f, new hust.cse.ohnapisummary.ir.Function()));
+            }else{
+                Logging.warn("Cannot find function for descriptor: "+desc.utf8name + " at " + desc.napi_callbback_method);
+            }
+        }
+        return functionsToAnalyze;
     }
 
     private void run4RegisterFunction(Function f) {
