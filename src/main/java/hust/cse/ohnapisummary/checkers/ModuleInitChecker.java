@@ -12,9 +12,11 @@ import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.Reference;
+import hust.cse.ohnapisummary.ir.value.Str;
 import hust.cse.ohnapisummary.mapping.NAPIDescriptor;
 import hust.cse.ohnapisummary.util.MyGlobalState;
 import hust.cse.ohnapisummary.util.NAPIValue;
+import hust.cse.ohnapisummary.util.NAPIValueManager;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -34,9 +36,10 @@ public class ModuleInitChecker extends CheckerBase {
     }
 
     // 用于记录函数地址和对应的napi_value的映射
-    private Map<Long, Long> valueToFunctionPointerMap = new HashMap<>();
-    // 用于记录函数名和对应的napi_value的映射
-    private Map<Long, String> valueToFunctionNameMap = new HashMap<>();
+    private Map<NAPIValue, Long> valueToFunctionPointerMap = new HashMap<>();
+
+    private Map<String, Long> name2FunctionPointerMap = new HashMap<>();
+
 
     @Override
     public boolean check() {
@@ -74,51 +77,10 @@ public class ModuleInitChecker extends CheckerBase {
 
                 directlyResolveDyRegFromMemcpyParam(caller, (int) size);
 
-            } else if (calleeName.equals("napi_set_named_property")) {
-                // 注册形如：
-                // static napi_value Init(napi_env env, napi_value exports) {
-                //    napi_value fn = nullptr;
-                //    napi_create_function(env, nullptr, 0, CalculateArea, nullptr, &fn);
-                //    napi_set_named_property(env, exports, "calculateArea", fn);
-                //    return exports;
-                //}
-                Logging.info("Resolving dynamic registered napi from napi_set_named_property");
-                // TODO: 解析napi_set_named_property的第三、四个参数
-                AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
-                if (absEnv == null) {
-                    Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
+            }else if (calleeName.equals("napi_create_function")) {
+                if (!(napiValue.isLocalValue() && napiValue.getRetIntoParamIndex() == 5)) {
                     continue;
                 }
-
-                // 解析napi_set_named_property的第三个参数，即属性名
-                KSet nameKSet = getParamKSet(callee, 2, absEnv);
-                String name = null;
-                for (AbsVal absVal : nameKSet) {
-                    if (absVal.getRegion().isGlobal()) {
-                        name = decodeStr(absEnv, absVal);
-                    }else{
-                        Logging.error("name is not global.");
-                    }
-                }
-                Logging.info("name of property is: " + name);
-
-                // 解析napi_set_named_property的第四个参数，即属性值
-                KSet valueKSet = getParamKSet(callee, 3, absEnv);
-                long value = 0;
-                for (AbsVal absVal : valueKSet) {
-                    if (absVal.getRegion().isGlobal()) {
-                        value = absVal.getValue();
-                    }
-                }
-                Logging.info("napi_value pointer is: " + value);
-
-
-                if (name != null && value != 0) {
-                    valueToFunctionNameMap.put(value, name);
-                }
-
-
-            } else if (calleeName.equals("napi_create_function")) {
                 // 注册形如：
                 // static napi_value Init(napi_env env, napi_value exports) {
                 //    napi_value fn = nullptr;
@@ -144,34 +106,92 @@ public class ModuleInitChecker extends CheckerBase {
                 }
                 Logging.info("function pointer is: " + funcPtr);
 
-                // 解析napi_create_function的第六个参数，即napi_value指针
-                KSet valueKSet = getParamKSet(callee, 5, absEnv);
-                long value = 0;
-                for (AbsVal absVal : valueKSet) {
-                    if (absVal.getRegion().isGlobal()) {
-                        value = absVal.getValue();
-                    }
-                }
-                Logging.info("napi_value pointer is: " + value);
-
-                if (funcPtr != 0 && value != 0) {
-                    valueToFunctionPointerMap.put(value, funcPtr);
-                }
-
+                valueToFunctionPointerMap.put(napiValue, funcPtr);
             }
-
         }
 
-        // 处理第二种方式注册的函数
-        // 遍历valueToFunctionPointerMap以及valueToFunctionNameMap，将其解析为NAPIDescriptor
-        for(Map.Entry<Long, Long> entry1 : valueToFunctionPointerMap.entrySet()){
-            long value = entry1.getKey();
-            long funcPtr = entry1.getValue();
-            if (valueToFunctionNameMap.containsKey(value)) {
-                String name = valueToFunctionNameMap.get(value);
-                Logging.info("Find dynamic registered napi: " + name + " at 0x" + Long.toHexString(funcPtr));
-                MyGlobalState.dynRegNAPIList.add(new NAPIDescriptor(name, GlobalState.flatAPI.toAddr(funcPtr)));
+
+        // 对 set_named_property 进行处理
+        for (Map.Entry<NAPIValue, Context> entry : MyGlobalState.napiManager.callsOrValues.entrySet()) {
+            NAPIValue napiValue = entry.getKey();
+            Context context = entry.getValue();
+            long callSite = napiValue.callSite;
+            Function caller = GlobalState.flatAPI.getFunctionContaining(GlobalState.flatAPI.toAddr(callSite));
+            Function callee = napiValue.getApi();
+            if (callee == null) {
+                Logging.error("Cannot find called external function for 0x" + Long.toHexString(callSite));
+                continue;
             }
+
+            String calleeName = callee.getName();
+
+            if (calleeName.equals("napi_set_named_property")) {
+                // 注册形如：
+                // static napi_value Init(napi_env env, napi_value exports) {
+                //    napi_value fn = nullptr;
+                //    napi_create_function(env, nullptr, 0, CalculateArea, nullptr, &fn);
+                //    napi_set_named_property(env, exports, "calculateArea", fn);
+                //    return exports;
+                //}
+                Logging.info("Resolving dynamic registered napi from napi_set_named_property");
+                // 解析napi_set_named_property的第三个参数
+                AbsEnv absEnv = context.getAbsEnvIn().get(GlobalState.flatAPI.toAddr(callSite));
+                if (absEnv == null) {
+                    Logging.error("Cannot find absEnv for 0x" + Long.toHexString(callSite));
+                    continue;
+                }
+
+                // 解析napi_set_named_property的第三个参数，即属性名
+                KSet nameKSet = getParamKSet(callee, 2, absEnv);
+                String name = null;
+                for (AbsVal absVal : nameKSet) {
+                    if (absVal.getRegion().isGlobal()) {
+                        name = decodeStr(absEnv, absVal);
+                    } else {
+                        Logging.error("name is not global.");
+                    }
+                }
+                Logging.info("name of property is: " + name);
+
+                // 解析napi_set_named_property的第四个参数，即属性值
+                KSet valueKSet = getParamKSet(callee, 3, absEnv);
+                Long id = null;
+                for (AbsVal absVal : valueKSet) {
+                    if (absVal.getRegion().isGlobal()) {
+                        id = absVal.getValue();
+                    }
+                }
+                if (id == null) {
+                    Logging.error("Cannot find napi_value pointer.");
+                    continue;
+                }
+                Logging.info("napi_value pointer is: " + id);
+
+                Long funcPtr = null;
+
+                // 这个值保存的可能是给不透明值分配的id
+                if (NAPIValueManager.highestBitsMatch(id)) { // special value
+                    NAPIValue v = MyGlobalState.napiManager.getValue(id);
+                    if (v != null) {
+                        funcPtr = valueToFunctionPointerMap.get(v);
+                    }
+                }
+
+
+                if (name != null && funcPtr != null) {
+                    name2FunctionPointerMap.put(name, funcPtr);
+                }
+            }
+        }
+        // TODO 处理第二种方式注册的函数
+        // 遍历valueToFunctionPointerMap以及valueToFunctionNameMap，将其解析为NAPIDescriptor
+        for(Map.Entry<String, Long>  entry1 : name2FunctionPointerMap.entrySet()){
+            String functionName = entry1.getKey();
+            long funcPtr = entry1.getValue();
+
+            Logging.info("Find dynamic registered napi: " + functionName + " at 0x" + Long.toHexString(funcPtr));
+            MyGlobalState.dynRegNAPIList.add(new NAPIDescriptor(functionName, GlobalState.flatAPI.toAddr(funcPtr)));
+
         }
         return false;
     }
