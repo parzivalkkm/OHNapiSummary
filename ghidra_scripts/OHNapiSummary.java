@@ -112,7 +112,7 @@ public class OHNapiSummary extends BinAbsInspector {
         }
 
         // 将IR写入到文件中
-        String exe_path = Paths.get(getCurrentProgram().getExecutablePath()).toString();
+        String exe_path = getCurrentProgram().getExecutablePath();
         FileWriter writer = new FileWriter(exe_path + ".ir.json");
         MyGlobalState.se.export(writer);
 
@@ -146,7 +146,7 @@ public class OHNapiSummary extends BinAbsInspector {
                     f.updateFunction(null, returnTypeToSet, Function.FunctionUpdateType.DYNAMIC_STORAGE_FORMAL_PARAMS, true, SourceType.USER_DEFINED, paramsToSet);
 
                 }
-                functionsToAnalyze.add(Map.entry(f, new hust.cse.ohnapisummary.ir.Function()));
+                functionsToAnalyze.add(Map.entry(f, irFunc));
             }else{
                 Logging.warn("Cannot find function for descriptor: "+desc.utf8name + " at " + desc.napi_callbback_method);
             }
