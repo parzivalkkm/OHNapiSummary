@@ -70,18 +70,18 @@ public class NapiArrayFunction extends NAPIFunctionBase {
 
         } else if(calleeFunc.getName().equals("napi_is_array")) {
             // 向result中插入一个抽象值
-            List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
-            // 记录这个返回值
-            NAPIValue localNV = recordLocal(context, calleeFunc, 2);
-            // 向分析中写入一个抽象值
-            KSet kSetForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize * 8, calleeFunc, context, inOutEnv);
-            for (ALoc loc : alocs) {
-                KSet ks = inOutEnv.get(loc);
-                for (AbsVal val : ks) {
-                    ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-                    inOutEnv.set(ptr, kSetForValue, true); // *ptr = env
-                }
-            }
+//            List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
+//            // 记录这个返回值
+//            NAPIValue localNV = recordLocal(context, calleeFunc, 2);
+//            // 向分析中写入一个抽象值
+//            KSet kSetForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize * 8, calleeFunc, context, inOutEnv);
+//            for (ALoc loc : alocs) {
+//                KSet ks = inOutEnv.get(loc);
+//                for (AbsVal val : ks) {
+//                    ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
+//                    inOutEnv.set(ptr, kSetForValue, true); // *ptr = env
+//                }
+//            }
 
         } else if(calleeFunc.getName().equals("napi_get_array_length")) {
             // 向result中插入一个抽象值

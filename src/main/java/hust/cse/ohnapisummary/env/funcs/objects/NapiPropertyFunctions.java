@@ -117,7 +117,6 @@ public class NapiPropertyFunctions  extends NAPIFunctionBase {
         } else if (calleeFunc.getName().equals("napi_has_property") ||
                 calleeFunc.getName().equals("napi_delete_property") ||
                 calleeFunc.getName().equals("napi_has_own_property") ||
-                calleeFunc.getName().equals("napi_set_named_property") ||
                 calleeFunc.getName().equals("napi_has_named_property")) {
             // 向result中插入一个抽象值
             List<ALoc> alocs = getParamALocs(calleeFunc, 3, inOutEnv);
@@ -146,6 +145,9 @@ public class NapiPropertyFunctions  extends NAPIFunctionBase {
             }
             return;
 
+        } else if (calleeFunc.getName().equals("napi_set_property") ||
+                calleeFunc.getName().equals("napi_set_named_property")) {
+            // 仅记录即可，无需处理
         }
     }
 }
