@@ -59,6 +59,9 @@ public enum TypeCategory {
                 return NAPI_CALLBACK_INFO;
             case "napi_env":
                 return NAPI_ENV;
+            case "LogType":
+            case "LogLevel":
+                return NUMBER;
             default:
                 return null;
         }
