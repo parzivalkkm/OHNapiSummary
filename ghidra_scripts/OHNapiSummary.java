@@ -113,6 +113,8 @@ public class OHNapiSummary extends BinAbsInspector {
 
         // 将IR写入到文件中
         String exe_path = getCurrentProgram().getExecutablePath();
+        // 记录当前so文件的名字
+        MyGlobalState.soName = Paths.get(exe_path).getFileName().toString();
         FileWriter writer = new FileWriter(exe_path + ".ir.json");
         MyGlobalState.se.export(writer);
 

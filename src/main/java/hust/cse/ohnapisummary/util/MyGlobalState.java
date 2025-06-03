@@ -51,6 +51,7 @@ public class MyGlobalState {
     // 以下记录Module的信息
     // 记录当前module的名字
     public static String moduleName;
+    public static String soName;
     // 记录当前module的init函数
     public static Function moduleInitFunc;
 

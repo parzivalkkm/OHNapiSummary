@@ -81,6 +81,7 @@ public class SummaryExporter extends CheckerBase {
 
     public void export(FileWriter fw) {
 
+        module.soName = MyGlobalState.soName;
         module.moduleName = MyGlobalState.moduleName;
         Gson gson = new Gson();
 
@@ -245,6 +246,11 @@ public class SummaryExporter extends CheckerBase {
             String dataTypeName = param.getDataType().getName();
             Logging.info("param: "+param.getName()+" "+param.getDataType().getName());
 
+            if (Objects.equals(napi.getName(), "napi_call_function") && i == 4){
+                // 解析napi_call_function的第5个参数，args，需要解析list
+                this.decodeArgsList(caller, call, napi, env, ret);
+            }
+
             List<ALoc> alocs = getParamALocs(napi, i, env);
 
             // TODO: 处理va_list
@@ -338,6 +344,58 @@ public class SummaryExporter extends CheckerBase {
 
         ret.add(call);
         return ret;
+    }
+
+    private void decodeArgsList(Function caller, Call call, Function napi,AbsEnv env,List<hust.cse.ohnapisummary.ir.Instruction> insts){
+        Logging.info("decoding args list");
+        // 获取arglist长度，传入的是一个number
+        List<ALoc> alocs = getParamALocs(napi, 3, env);
+        long size = 0;
+        for (ALoc loc: alocs) {
+            KSet ks = env.get(loc);
+            for (AbsVal val : ks) {
+                size = val.getValue();
+            }
+        }
+        Logging.info("napi_call_function argc is:" + size );
+        if (size == 0) {
+            Logging.warn("Cannot get argc or argc is 0");
+            return;
+        }
+
+        // 分别解析每个参数
+        Parameter param = napi.getParameter(4);
+        // 获取p3传入值指向的地址，这里传入的时napi_value *，我们需要获取这个指针的值
+        alocs = getParamALocs(napi, 4, env);
+        ALoc starPtrAloc = null;
+
+        for (ALoc loc: alocs) {
+            KSet ks = env.get(loc);
+            for (AbsVal val : ks) {
+                ALoc ptr = ALoc.getALoc(val.getRegion(), val.getValue(), MyGlobalState.defaultPointerSize);
+                starPtrAloc = ptr;
+            }
+        }
+        long starPtr = starPtrAloc.getBegin();
+        RegionBase region = starPtrAloc.getRegion();
+        Logging.info("napi_call_function starPtr is a local value Region:" + region );
+
+        for(int i=0; i<size;i++) {
+            // 解析参数
+            List<Value> values = new ArrayList<>();
+
+            KSet kSet = env.get(starPtrAloc);
+            values.addAll(decodeKSet(param.getDataType(), kSet, env,
+                    String.format("Func %s Param %s %s",napi.getName(), param.getDataType().toString(), param.getName())));
+
+            // phi所有解析出来的use
+            call.argsOperands.add(new Use(call, phiMerge(values, insts)));
+
+            // 获取下一个地址处的Aloc
+            starPtr += MyGlobalState.defaultPointerSize;
+            starPtrAloc = ALoc.getALoc(region, starPtr, MyGlobalState.defaultPointerSize);
+        }
+
     }
 
     /**
