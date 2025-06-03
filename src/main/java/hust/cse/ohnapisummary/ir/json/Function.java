@@ -44,6 +44,12 @@ public class Function {
                     for(hust.cse.ohnapisummary.ir.utils.Use use: call.operands) {
                         lastCallInst.operands.add(getValueName(use.value));
                     }
+                    if (call.argsOperands != null && !call.argsOperands.isEmpty()) {
+                        lastCallInst.argsoperands = new ArrayList<>();
+                        for (hust.cse.ohnapisummary.ir.utils.Use use : call.argsOperands) {
+                            lastCallInst.argsoperands.add(getValueName(use.value));
+                        }
+                    }
 
                 }else if (!callsite.equals(lastCallSite)) {
                     // 是新的callsite
@@ -61,6 +67,12 @@ public class Function {
                     // 将操作数添加至lastCallInst
                     for(hust.cse.ohnapisummary.ir.utils.Use use: call.operands) {
                         lastCallInst.operands.add(getValueName(use.value));
+                    }
+                    if (call.argsOperands != null && !call.argsOperands.isEmpty()) {
+                        lastCallInst.argsoperands = new ArrayList<>();
+                        for (hust.cse.ohnapisummary.ir.utils.Use use : call.argsOperands) {
+                            lastCallInst.argsoperands.add(getValueName(use.value));
+                        }
                     }
 
                 }
@@ -140,6 +152,9 @@ public class Function {
 
         @SerializedName("rets")
         Map<String, String> rets = new LinkedHashMap<>();
+
+        @SerializedName("argsoperands")
+        List<String> argsoperands = null; // Optional field
 
     }
 

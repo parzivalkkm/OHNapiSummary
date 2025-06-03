@@ -1,8 +1,11 @@
 package hust.cse.ohnapisummary.ir.inst;
 
 import hust.cse.ohnapisummary.ir.Instruction;
+import hust.cse.ohnapisummary.ir.utils.Use;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class Call extends Instruction {
     // keep sync with JNIValue
@@ -10,6 +13,8 @@ public class Call extends Instruction {
     public String target;
     public long callsite;
     public int returnValueIndex;
+
+    public List<Use> argsOperands = new ArrayList<>();
 
     public void setNormalReturn() {
         returnValueIndex = -1;
