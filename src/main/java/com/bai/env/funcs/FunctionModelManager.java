@@ -150,7 +150,8 @@ public class FunctionModelManager {
             new NapiLoadModuleWithInfoFunction(),
             new NapiCoerceFunction(),
             new NapiDateFunction(),
-            new NapiGetDefinedSingletonsFunction()
+            new NapiGetDefinedSingletonsFunction(),
+            new NapiErrorFunction()
 
 
 
