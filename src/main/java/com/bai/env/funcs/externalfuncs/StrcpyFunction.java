@@ -6,6 +6,7 @@ import com.bai.env.AbsEnv;
 import com.bai.env.AbsVal;
 import com.bai.env.Context;
 import com.bai.env.KSet;
+import com.bai.env.region.RegionBase;
 import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
@@ -52,6 +53,7 @@ public class StrcpyFunction extends ExternalFunctionBase {
                     continue;
                 }
                 StringUtils.copyString(dstPtr, srcPtr, inOutEnv, StringUtils.MAX_LEN);
+                StringUtils.copyStringTaint(dstPtr, srcPtr, inOutEnv);
             }
         }
         KSet newRet = new KSet(dstPtrKSet);

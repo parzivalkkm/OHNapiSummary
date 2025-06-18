@@ -40,6 +40,7 @@ public class StrncpyFunction extends ExternalFunctionBase {
                     continue;
                 }
                 StringUtils.copyString(dstPtr, srcPtr, inOutEnv, size);
+                StringUtils.copyStringTaint(dstPtr, srcPtr, inOutEnv);
             }
         }
     }

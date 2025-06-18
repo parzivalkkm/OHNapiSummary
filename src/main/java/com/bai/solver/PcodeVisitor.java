@@ -679,9 +679,7 @@ public class PcodeVisitor {
 
         if (callee.isThunk()) {
             callee = callee.getThunkedFunction(true);
-        }
-
-        if (callee.isExternal() || FunctionModelManager.isFunctionAddressMapped(targetAddress)) {
+        }        if (callee.isExternal() || FunctionModelManager.isFunctionAddressMapped(targetAddress)) {
             defineExternalFunctionSignature(pcode, inOutEnv, tmpEnv, callee);
             MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
             NAPIFunctionBase.currentCallSite = callSite;

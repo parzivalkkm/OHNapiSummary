@@ -13,7 +13,9 @@ import ghidra.program.model.data.IntegerDataType;
 import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
+import hust.cse.ohnapisummary.env.MyTaintMap;
 import hust.cse.ohnapisummary.env.funcs.NAPIFunctionBase;
+import hust.cse.ohnapisummary.util.NAPIValue;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,11 +58,17 @@ public class MallocFunction extends ExternalFunctionBase {
         }
         Address allocAddress = getAddress(pcode);
         KSet resKSet = new KSet(retALoc.getLen() * 8);
-        Heap allocChunk = Heap.getHeap(allocAddress, context, size, true);
+        // 做出了修改，改为默认size
+        Heap allocChunk = Heap.getHeap(allocAddress, context, Heap.DEFAULT_SIZE, true);
 
 
         // record to summary ir
-        NAPIFunctionBase.recordAllocCall(context, callFunc, allocChunk);
+        NAPIValue nv = NAPIFunctionBase.recordAllocCall(context, callFunc, allocChunk);
+
+        // 分配污点
+        long newTaint = MyTaintMap.getTaints(nv);
+        KSet taintedTop = KSet.getTop(newTaint);
+        inOutEnv.set(ALoc.getALoc(allocChunk, allocChunk.getBase(),  1), taintedTop, false);
 
 
         resKSet = resKSet.insert(AbsVal.getPtr(allocChunk));

@@ -6,6 +6,8 @@ import com.bai.env.AbsEnv;
 import com.bai.env.AbsVal;
 import com.bai.env.Context;
 import com.bai.env.KSet;
+import com.bai.util.Logging;
+import com.bai.util.StringUtils;
 import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.PcodeOp;
@@ -48,6 +50,18 @@ public class StrcatFunction extends ExternalFunctionBase {
         } else {
             for (AbsVal ptr : dstPtrKSet) {
                 Utils.taintBuf(inOutEnv, ptr, srcTaints, true);
+            }
+        }
+
+        for (AbsVal srcPtr : srcPtrKSet) {
+            if (srcPtr.isBigVal()) {
+                continue;
+            }
+            for (AbsVal dstPtr : dstPtrKSet) {
+                if (dstPtr.isBigVal()) {
+                    continue;
+                }
+                StringUtils.mergeStringTaint(dstPtr, srcPtr, inOutEnv);
             }
         }
         KSet resKSet = new KSet(dstPtrKSet);

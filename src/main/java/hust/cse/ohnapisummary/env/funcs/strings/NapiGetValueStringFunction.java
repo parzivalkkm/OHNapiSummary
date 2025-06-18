@@ -63,26 +63,26 @@ public class NapiGetValueStringFunction extends NAPIFunctionBase {
 //            }
 //        }
 
-        List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
-        // TODO 如果传入的是null，那就没有必要记录了
-//        if (alocs.size() == 0) {
-//            return;
+//        List<ALoc> alocs = getParamALocs(calleeFunc, 2, inOutEnv);
+//        // TODO 如果传入的是null，那就没有必要记录了
+////        if (alocs.size() == 0) {
+////            return;
+////        }
+//        NAPIValue localNV = recordLocal(context, calleeFunc,2);
+//        // TODO 不是number 暂且标记为不透明值吧
+//        KSet setForValue = NAPIValueManager.getKSetForValue(TypeCategory.IN_TRANSPARENT, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
+//        for (ALoc loc: alocs) {
+//            KSet ks = inOutEnv.get(loc);
+//            for (AbsVal val : ks) {
+//                ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
+//                inOutEnv.set(ptr, setForValue, true);
+//            }
 //        }
-        NAPIValue localNV = recordLocal(context, calleeFunc,2);
-        // TODO 不是number 暂且标记为不透明值吧
-        KSet setForValue = NAPIValueManager.getKSetForValue(TypeCategory.IN_TRANSPARENT, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
-        for (ALoc loc: alocs) {
-            KSet ks = inOutEnv.get(loc);
-            for (AbsVal val : ks) {
-                ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-                inOutEnv.set(ptr, setForValue, true);
-            }
-        }
 
-        alocs = getParamALocs(calleeFunc, 4, inOutEnv);
+        List<ALoc>  alocs = getParamALocs(calleeFunc, 4, inOutEnv);
 
-        localNV = recordLocal(context, calleeFunc,4);
-        setForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
+        NAPIValue localNV = recordLocal(context, calleeFunc,4);
+        KSet setForValue = NAPIValueManager.getKSetForValue(TypeCategory.NUMBER, calleeFunc.getEntryPoint(), localNV, MyGlobalState.defaultPointerSize* 8, calleeFunc, context, inOutEnv);
         for (ALoc loc: alocs) {
             KSet ks = inOutEnv.get(loc);
             for (AbsVal val : ks) {

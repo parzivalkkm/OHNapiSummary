@@ -125,14 +125,20 @@ public class SummaryExporter extends CheckerBase {
             // 处理Heap region
             RegionBase region = targetVal.getRegion();
             if (region.isHeap() && MyGlobalState.napiManager.heapMap.containsKey(region)) {
+                Logging.info("Decoding heap region");
 
                 ret.add(decodeNapiValue(MyGlobalState.napiManager.heapMap.get(region)));
                 // check Ffirst taint in heap
                 KSet top = env.get(ALoc.getALoc(region, region.getBase(), 1));
                 taints = top.getTaints();
                 taintSourceList = MyTaintMap.getTaintSourceList(taints);
+                Logging.info("Heap region taint source list: "+taintSourceList.size());
                 for (NAPIValue jv : taintSourceList) {
-                    ret.add(decodeNapiValue(jv));
+                    Value v = decodeNapiValue(jv);
+                    // 避免自己phi自己
+                    if( !ret.contains(v)) {
+                        ret.add(v);
+                    }
                 }
 
                 continue;

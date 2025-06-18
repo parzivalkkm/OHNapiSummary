@@ -4,6 +4,7 @@ import com.bai.env.ALoc;
 import com.bai.env.AbsEnv;
 import com.bai.env.AbsVal;
 import com.bai.env.KSet;
+import com.bai.env.region.RegionBase;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.data.CharDataType;
@@ -413,4 +414,24 @@ public class StringUtils {
         def.setVarArgs(true);
         return def;
     }
+
+    public static void copyStringTaint(AbsVal dstAbsVal, AbsVal srcAbsVal, AbsEnv absEnv){
+        Logging.info("Copying string taint from " + srcAbsVal + " to " + dstAbsVal);
+        // Taint the destination buffer with the source's taints
+        KSet srctop = absEnv.get(ALoc.getALoc(srcAbsVal.getRegion(), srcAbsVal.getRegion().getBase(), 1));
+        absEnv.set(ALoc.getALoc(dstAbsVal.getRegion(), dstAbsVal.getRegion().getBase(), 1), srctop, false);
+    }
+
+    public static void mergeStringTaint(AbsVal dstAbsVal, AbsVal srcAbsVal, AbsEnv absEnv){
+        Logging.info("Merging string taint from " + srcAbsVal + " to " + dstAbsVal);
+        // Taint the destination buffer with the source's and destination's taints
+        KSet srctop = absEnv.get(ALoc.getALoc(srcAbsVal.getRegion(), srcAbsVal.getRegion().getBase(), 1));
+        long srcTaints = srctop.getTaints();
+
+        KSet dstTop = absEnv.get(ALoc.getALoc(dstAbsVal.getRegion(), dstAbsVal.getRegion().getBase(), 1));
+        long newTaints = dstTop.getTaints() | srcTaints;
+        KSet newDstTop = dstTop.setTaints(newTaints);
+        absEnv.set(ALoc.getALoc(dstAbsVal.getRegion(), dstAbsVal.getRegion().getBase(), 1), newDstTop, false);
+    }
+
 }

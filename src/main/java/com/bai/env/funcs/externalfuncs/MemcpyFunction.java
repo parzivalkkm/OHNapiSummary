@@ -61,6 +61,7 @@ public class MemcpyFunction extends ExternalFunctionBase {
                 }
                 Logging.info("memcpy: " + dstPtr + " <- " + srcPtr + " size: " + size);
                 Boolean sucess = StringUtils.copyString(dstPtr, srcPtr, inOutEnv, (int) size);
+                StringUtils.copyStringTaint(dstPtr, srcPtr, inOutEnv);
                 Logging.info("memcpy: " + sucess);
             }
         }
