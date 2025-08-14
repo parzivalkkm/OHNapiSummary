@@ -2,6 +2,7 @@ package hust.cse.ohnapisummary.checkers;
 
 import com.bai.checkers.CheckerBase;
 import com.bai.env.*;
+import com.bai.env.region.RegionBase;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
 import com.bai.util.Utils;
@@ -75,7 +76,17 @@ public class ModuleInitChecker extends CheckerBase {
                 }
                 Logging.info("size of descriptors is: " + size);
 
-                directlyResolveDyRegFromMemcpyParam(caller, (int) size);
+                // 解析napi_define_properties的第四个参数，即napi_property_descriptor数组的指针
+                KSet descriptorArrayKSet = getParamKSet(callee, 3, absEnv);
+                
+                // 尝试从memcpy解析（用于大量函数的情况）
+                boolean resolvedFromMemcpy = directlyResolveDyRegFromMemcpyParam(caller, (int) size);
+                
+                // 如果memcpy方式失败，尝试直接解析descriptor数组（用于少量函数的情况）
+                if (!resolvedFromMemcpy) {
+                    Logging.info("Memcpy approach failed, trying direct descriptor array resolution");
+                    directlyResolveFromDescriptorArray(descriptorArrayKSet, (int) size, absEnv);
+                }
 
             }else if (calleeName.equals("napi_create_function")) {
                 if (!(napiValue.isLocalValue() && napiValue.getRetIntoParamIndex() == 5)) {
@@ -196,8 +207,14 @@ public class ModuleInitChecker extends CheckerBase {
         return false;
     }
 
-    private void directlyResolveDyRegFromMemcpyParam(Function function,int size) {
+    private boolean directlyResolveDyRegFromMemcpyParam(Function function,int size) {
         List<Reference> references = Utils.getReferences(List.of("memcpy"));
+        if (references.isEmpty()) {
+            Logging.warn("No memcpy references found.");
+            return false;
+        }
+        
+        boolean found = false;
         for (Reference reference : references) {
             Address toAddress = reference.getToAddress();
             Address fromAddress = reference.getFromAddress();
@@ -220,18 +237,110 @@ public class ModuleInitChecker extends CheckerBase {
             KSet srcPtrKSet = getParamKSet(callee, 1, absEnv);
             if (!srcPtrKSet.isNormal()) {
                 Logging.error("srcPtrKSet is not normal.");
-                return;
+                continue;
             }
             if (!srcPtrKSet.isSingleton()) {
                 Logging.error("srcPtrKSet is not singleton.");
-                return;
+                continue;
             }
             AbsVal srcPtr = srcPtrKSet.iterator().next();
             Logging.info("srcPtr: " + srcPtr.getValue());
 
             directlyResolveNAPIDescriptorsAt(srcPtr.getValue(),size);
-
+            found = true;
         }
+        return found;
+    }
+
+    /**
+     * 直接从descriptor数组解析，适用于少量函数直接赋值的情况
+     */
+    private void directlyResolveFromDescriptorArray(KSet descriptorArrayKSet, int size, AbsEnv absEnv) {
+        Logging.info("Resolving descriptors from direct array access");
+        
+        for (AbsVal arrayPtr : descriptorArrayKSet) {
+            if (!arrayPtr.getRegion().isGlobal()) {
+                // 可能是栈上的局部变量
+                if (arrayPtr.getRegion().isLocal()) {
+                    Logging.info("Found local descriptor array, trying to resolve...");
+                    resolveLocalDescriptorArray(arrayPtr, size, absEnv);
+                } else {
+                    Logging.warn("Descriptor array is neither global nor local: " + arrayPtr.getRegion().getClass().getSimpleName());
+                }
+                continue;
+            }
+            
+            // 全局descriptor数组的情况
+            long arrayAddr = arrayPtr.getValue();
+            Logging.info("Found global descriptor array at: 0x" + Long.toHexString(arrayAddr));
+            directlyResolveNAPIDescriptorsAt(arrayAddr, size);
+        }
+    }
+
+    /**
+     * 解析栈上构造的descriptor数组
+     */
+    private void resolveLocalDescriptorArray(AbsVal arrayPtr, int size, AbsEnv absEnv) {
+        // 对于栈上的descriptor，我们需要通过抽象环境来获取其内容
+        RegionBase region = arrayPtr.getRegion();
+        long baseOffset = arrayPtr.getValue();
+        int ptrSize = MyGlobalState.defaultPointerSize;
+        int structSize = ptrSize * 8; // napi_property_descriptor结构体大小
+        
+        Logging.info("Resolving local descriptor array, base offset: " + baseOffset + ", size: " + size);
+        
+        for (int i = 0; i < size; i++) {
+            long structOffset = baseOffset + i * structSize;
+            
+            // 尝试解析每个descriptor结构体的字段
+            String utf8name = resolveLocalDescriptorField(region, structOffset + ptrSize * 0, absEnv); // utf8name
+            Long methodPtr = resolveLocalDescriptorMethodPtr(region, structOffset + ptrSize * 2, absEnv); // method
+            
+            if (utf8name != null && methodPtr != null) {
+                Logging.info("Found local descriptor: " + utf8name + " at 0x" + Long.toHexString(methodPtr));
+                MyGlobalState.dynRegNAPIList.add(new NAPIDescriptor(utf8name, GlobalState.flatAPI.toAddr(methodPtr)));
+            } else {
+                Logging.warn("Failed to resolve local descriptor at offset: " + structOffset);
+            }
+        }
+    }
+
+    /**
+     * 从局部变量区域解析字符串字段
+     */
+    private String resolveLocalDescriptorField(RegionBase region, long fieldOffset, AbsEnv absEnv) {
+        ALoc fieldLoc = ALoc.getALoc(region, fieldOffset, MyGlobalState.defaultPointerSize);
+        KSet fieldKSet = absEnv.get(fieldLoc);
+        
+        if (fieldKSet == null || !fieldKSet.isNormal() || fieldKSet.isBot()) {
+            return null;
+        }
+        
+        for (AbsVal fieldVal : fieldKSet) {
+            if (fieldVal.getRegion().isGlobal()) {
+                return getStrFromAddr(fieldVal.getValue());
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 从局部变量区域解析方法指针字段
+     */
+    private Long resolveLocalDescriptorMethodPtr(RegionBase region, long fieldOffset, AbsEnv absEnv) {
+        ALoc fieldLoc = ALoc.getALoc(region, fieldOffset, MyGlobalState.defaultPointerSize);
+        KSet fieldKSet = absEnv.get(fieldLoc);
+        
+        if (fieldKSet == null || !fieldKSet.isNormal() || fieldKSet.isBot()) {
+            return null;
+        }
+        
+        for (AbsVal fieldVal : fieldKSet) {
+            if (fieldVal.getRegion().isGlobal()) {
+                return fieldVal.getValue();
+            }
+        }
+        return null;
     }
 
     private void directlyResolveNAPIDescriptorsAt(long ptr, int size){

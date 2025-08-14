@@ -10,13 +10,13 @@ import java.util.Map;
 public class CheckerManager {
 
     private static final Map<String, CheckerBase> CHECKER_MAP = Map.ofEntries(
-            Map.entry("CWE134", new CWE134()),
-            Map.entry("CWE190", new CWE190()),
-            Map.entry("CWE367", new CWE367()),
-            Map.entry("CWE426", new CWE426()),
-            Map.entry("CWE467", new CWE467()),
-            Map.entry("CWE676", new CWE676()),
-            Map.entry("CWE78", new CWE78())
+//            Map.entry("CWE134", new CWE134()),
+//            Map.entry("CWE190", new CWE190()),
+//            Map.entry("CWE367", new CWE367()),
+//            Map.entry("CWE426", new CWE426()),
+//            Map.entry("CWE467", new CWE467()),
+//            Map.entry("CWE676", new CWE676()),
+//            Map.entry("CWE78", new CWE78())
     );
 
     /**

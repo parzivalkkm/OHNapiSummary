@@ -116,11 +116,11 @@ public class Config {
 
     private static final int DEFAULT_Z3_TIMEOUT = 1000; // unit in millisecond
 
-    private static final int DEFAULT_CALLSTRING_K = 3;
+    private static final int DEFAULT_CALLSTRING_K = 1;
 
-    private static final int DEFAULT_K = 50;
+    private static final int DEFAULT_K = 15;
 
-    private static final int DEFAULT_TIMEOUT = -1; // unit in second, no timeout by default
+    private static final int DEFAULT_TIMEOUT = 300; // unit in second, no timeout by default
 
     private int z3TimeOut;
 
