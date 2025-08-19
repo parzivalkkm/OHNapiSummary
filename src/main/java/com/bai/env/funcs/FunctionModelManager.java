@@ -50,6 +50,7 @@ import hust.cse.ohnapisummary.env.funcs.misc.*;
 import hust.cse.ohnapisummary.env.funcs.nubers.NapiCreateNumberFunction;
 import hust.cse.ohnapisummary.env.funcs.nubers.NapiGetValueNuberFunction;
 import hust.cse.ohnapisummary.env.funcs.objects.*;
+import hust.cse.ohnapisummary.env.funcs.classRelated.NapiClassRelatedFunction;
 import hust.cse.ohnapisummary.env.funcs.arrays.NapiElementFunctions;
 import hust.cse.ohnapisummary.env.funcs.sinks.NapiLogFunction;
 import hust.cse.ohnapisummary.env.funcs.strings.NapiCreateStringFunction;
@@ -131,6 +132,9 @@ public class FunctionModelManager {
             new NapiPropertyFunctions(),
             new NapiObjectFunctions(),
 //            new NapiSymbolFunctions(),
+
+            // 类相关
+            new NapiClassRelatedFunction(),
 
 
             // array相关
