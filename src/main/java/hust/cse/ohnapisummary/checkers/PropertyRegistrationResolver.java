@@ -38,16 +38,171 @@ class PropertyRegistrationResolver {
         // 解析属性描述符数组指针（第4个参数）
         KSet descriptorArrayKSet = CheckerBase.getParamKSet(callee, 3, absEnv);
         
-        // 先尝试直接解析descriptor数组（更快的方法）
-        boolean resolvedDirectly = resolveFromDescriptorArray(descriptorArrayKSet, (int) size, absEnv);
-        
-        // 只有在直接解析失败且数组大小较大时才尝试memcpy方式
-        if (!resolvedDirectly && size > 3) { // 只有大于3个属性时才考虑memcpy优化
-            Logging.info("Direct approach failed for large array, trying memcpy resolution");
-            resolveFromMemcpy(caller, (int) size);
-        } else if (!resolvedDirectly) {
-            Logging.info("Direct approach failed but array is small, skipping memcpy resolution");
+        // 验证描述符数组的合理性
+        if (!ModuleInitChecker.isLikelyNAPIDescriptorArray(descriptorArrayKSet, (int)size, "napi_define_properties")) {
+            Logging.warn("Descriptor array validation failed, skipping napi_define_properties resolution");
+            return;
         }
+        
+        // 使用分层解析策略
+        if (!tryLayeredResolution(descriptorArrayKSet, (int) size, absEnv, caller)) {
+            Logging.warn("All resolution strategies failed for napi_define_properties");
+        }
+    }
+    
+    /**
+     * 分层解析策略 - 从最安全到最保守
+     */
+    private boolean tryLayeredResolution(KSet descriptorArrayKSet, int size, AbsEnv absEnv, Function caller) {
+        // Layer 1: 直接全局数组解析 (最安全)
+        if (resolveFromGlobalDescriptorArray(descriptorArrayKSet, size)) {
+            Logging.info("Successfully resolved using global descriptor array (Layer 1)");
+            return true;
+        }
+        
+        // Layer 2: 本地栈数组解析 (中等安全)
+        if (resolveFromLocalDescriptorArray(descriptorArrayKSet, size, absEnv)) {
+            Logging.info("Successfully resolved using local descriptor array (Layer 2)");
+            return true;
+        }
+        
+        // Layer 3: 有限制的memcpy解析 (最保守) - 增加更严格的条件
+        if (size > 5 && isHighConfidenceNAPIContext(caller)) {
+            if (resolveFromConstrainedMemcpy(caller, size, descriptorArrayKSet)) {
+                Logging.info("Successfully resolved using constrained memcpy (Layer 3)");
+                return true;
+            }
+        } else if (size > 3) {
+            Logging.info("Skipping memcpy resolution: size=" + size + ", confidence=" + 
+                        (isHighConfidenceNAPIContext(caller) ? "high" : "low"));
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 解析全局描述符数组 - 增加验证
+     */
+    private boolean resolveFromGlobalDescriptorArray(KSet descriptorArrayKSet, int size) {
+        Logging.info("Attempting global descriptor array resolution with validation");
+        
+        for (AbsVal arrayPtr : descriptorArrayKSet) {
+            if (!arrayPtr.getRegion().isGlobal()) {
+                continue;
+            }
+            
+            long arrayAddr = arrayPtr.getValue();
+            
+            // 验证数组地址
+            if (!ModuleInitChecker.isValidMemoryAddress(arrayAddr, "global descriptor array")) {
+                Logging.warn("Invalid global array address: 0x" + Long.toHexString(arrayAddr));
+                continue;
+            }
+            
+            Logging.info("Found valid global descriptor array at: 0x" + Long.toHexString(arrayAddr));
+            
+            // 解析描述符并验证每个结构
+            int validDescriptors = resolveDescriptorsWithValidation(arrayAddr, size, "global array");
+            
+            if (validDescriptors > 0) {
+                Logging.info("Global array resolution succeeded, resolved " + validDescriptors + " descriptors");
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 带验证的描述符解析
+     */
+    private int resolveDescriptorsWithValidation(long arrayAddr, int size, String source) {
+        int ptrSize = MyGlobalState.defaultPointerSize;
+        int structSize = ptrSize * 8; // napi_property_descriptor结构体大小
+        int validCount = 0;
+        
+        for (int i = 0; i < size; i++) {
+            long structAddr = arrayAddr + i * structSize;
+            
+            // 验证描述符结构
+            if (!ModuleInitChecker.validateNAPIDescriptorStructure(arrayAddr, i, source)) {
+                Logging.warn("Descriptor validation failed for index " + i + " in " + source);
+                continue;
+            }
+            
+            // 解析属性名（第1个字段）
+            long namePtr = ModuleInitChecker.getValueFromAddrWithPtrSize(structAddr, ptrSize);
+            String propertyName = null;
+            
+            if (namePtr != 0 && ModuleInitChecker.isValidMemoryAddress(namePtr, source + " property name")) {
+                propertyName = ModuleInitChecker.getStrFromAddr(namePtr);
+            }
+            
+            // 解析方法指针（第3个字段）  
+            long methodPtr = ModuleInitChecker.getValueFromAddrWithPtrSize(structAddr + ptrSize * 2, ptrSize);
+            
+            if (propertyName != null && methodPtr != 0 && 
+                ModuleInitChecker.isValidMemoryAddress(methodPtr, source + " method pointer")) {
+                
+                addPropertyRegistration(propertyName, methodPtr);
+                validCount++;
+                Logging.info("Validated and added property: " + propertyName + " -> 0x" + Long.toHexString(methodPtr));
+            } else {
+                Logging.debug("Skipped invalid descriptor at index " + i + " in " + source);
+            }
+        }
+        
+        return validCount;
+    }
+    
+    /**
+     * 检查是否为高置信度的NAPI上下文
+     */
+    private boolean isHighConfidenceNAPIContext(Function function) {
+        if (function == null) {
+            return false;
+        }
+        
+        String funcName = function.getName().toLowerCase();
+        
+        // 检查函数名是否包含NAPI相关关键词
+        if (funcName.contains("init") || funcName.contains("register") || 
+            funcName.contains("napi") || funcName.contains("module")) {
+            return true;
+        }
+        
+        // 可以添加更多启发式规则
+        // 例如：检查函数是否包含多个NAPI调用
+        
+        return false;
+    }
+    
+    /**
+     * 受限制的memcpy解析 - 更安全的版本
+     */
+    private boolean resolveFromConstrainedMemcpy(Function function, int size, KSet sourceKSet) {
+        Logging.info("Attempting constrained memcpy resolution for function: " + function.getName());
+        
+        // 首先验证源数据的合理性
+        boolean hasValidSource = false;
+        for (AbsVal val : sourceKSet) {
+            if (val.getRegion().isGlobal()) {
+                long addr = val.getValue();
+                if (ModuleInitChecker.isValidMemoryAddress(addr, "memcpy source") &&
+                    ModuleInitChecker.isValidMemoryRegion(addr, "memcpy source")) {
+                    hasValidSource = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!hasValidSource) {
+            Logging.warn("No valid source found for memcpy resolution");
+            return false;
+        }
+        
+        // 只查找与NAPI相关的memcpy调用
+        return resolveFromValidatedMemcpy(function, size);
     }
     
     /**
@@ -150,42 +305,32 @@ class PropertyRegistrationResolver {
     }
     
     /**
-     * 直接从descriptor数组解析
-     * @return 是否成功解析出至少一个属性
+     * 解析本地描述符数组 - 增加验证  
      */
-    private boolean resolveFromDescriptorArray(KSet descriptorArrayKSet, int size, AbsEnv absEnv) {
-        Logging.info("Resolving descriptors from direct array access");
-        
-        int resolvedCount = 0;
+    private boolean resolveFromLocalDescriptorArray(KSet descriptorArrayKSet, int size, AbsEnv absEnv) {
+        Logging.info("Attempting local descriptor array resolution with validation");
         
         for (AbsVal arrayPtr : descriptorArrayKSet) {
-            if (!arrayPtr.getRegion().isGlobal()) {
-                if (arrayPtr.getRegion().isLocal()) {
-                    Logging.info("Found local descriptor array, trying to resolve...");
-                    resolvedCount += resolveLocalDescriptorArray(arrayPtr, size, absEnv);
-                } else {
-                    Logging.warn("Descriptor array is neither global nor local: " + arrayPtr.getRegion().getClass().getSimpleName());
+            if (arrayPtr.getRegion().isLocal()) {
+                Logging.info("Found local descriptor array, trying to resolve...");
+                
+                // 验证本地数组的基本合理性
+                RegionBase region = arrayPtr.getRegion();
+                long baseOffset = arrayPtr.getValue();
+                
+                if (resolveLocalDescriptorArrayWithValidation(arrayPtr, size, absEnv) > 0) {
+                    return true;
                 }
-                continue;
             }
-            
-            // 全局descriptor数组的情况
-            long arrayAddr = arrayPtr.getValue();
-            Logging.info("Found global descriptor array at: 0x" + Long.toHexString(arrayAddr));
-            resolvedCount += resolveDescriptorsAt(arrayAddr, size);
         }
         
-        boolean success = resolvedCount > 0;
-        Logging.info("Direct array resolution " + (success ? "succeeded" : "failed") + 
-                    ", resolved " + resolvedCount + " properties");
-        return success;
+        return false;
     }
     
     /**
-     * 解析栈上构造的descriptor数组
-     * @return 成功解析的属性数量
+     * 带验证的本地描述符数组解析
      */
-    private int resolveLocalDescriptorArray(AbsVal arrayPtr, int size, AbsEnv absEnv) {
+    private int resolveLocalDescriptorArrayWithValidation(AbsVal arrayPtr, int size, AbsEnv absEnv) {
         RegionBase region = arrayPtr.getRegion();
         long baseOffset = arrayPtr.getValue();
         int ptrSize = MyGlobalState.defaultPointerSize;
@@ -198,18 +343,95 @@ class PropertyRegistrationResolver {
             long structOffset = baseOffset + i * structSize;
             
             // 解析每个descriptor结构体的字段
-            String utf8name = resolveLocalDescriptorField(region, structOffset + ptrSize * 0, absEnv);
+            String propertyName = resolveLocalDescriptorField(region, structOffset, absEnv);
             Long methodPtr = resolveLocalDescriptorMethodPtr(region, structOffset + ptrSize * 2, absEnv);
             
-            if (utf8name != null && methodPtr != null) {
-                Logging.info("Found local descriptor: " + utf8name + " at 0x" + Long.toHexString(methodPtr));
-                addPropertyRegistration(utf8name, methodPtr);
-                resolvedCount++;
+            // 验证解析出的数据
+            if (propertyName != null && methodPtr != null && methodPtr != 0) {
+                if (ModuleInitChecker.isValidMemoryAddress(methodPtr, "local descriptor method ptr")) {
+                    addPropertyRegistration(propertyName, methodPtr);
+                    resolvedCount++;
+                    Logging.info("Validated local descriptor: " + propertyName + " -> 0x" + Long.toHexString(methodPtr));
+                } else {
+                    Logging.warn("Invalid method pointer in local descriptor: 0x" + Long.toHexString(methodPtr));
+                }
             } else {
-                Logging.warn("Failed to resolve local descriptor at offset: " + structOffset);
+                Logging.debug("Failed to resolve local descriptor at offset: " + structOffset);
             }
         }
+        
         return resolvedCount;
+    }
+    
+    /**
+     * 验证的memcpy解析 - 替代原来的resolveFromMemcpy
+     */
+    private boolean resolveFromValidatedMemcpy(Function function, int size) {
+        Logging.info("Trying validated memcpy resolution within function: " + function.getName());
+        
+        // 只在当前函数内查找memcpy调用
+        boolean found = false;
+        Address functionStart = function.getEntryPoint();
+        Address functionEnd = function.getBody().getMaxAddress();
+        
+        int memcpyCount = 0;
+        Address currentAddr = functionStart;
+        
+        while (currentAddr != null && currentAddr.compareTo(functionEnd) <= 0) {
+            Reference[] referencesFrom = GlobalState.currentProgram.getReferenceManager().getReferencesFrom(currentAddr);
+            
+            for (Reference ref : referencesFrom) {
+                if (ref.getReferenceType().isCall()) {
+                    Function calledFunction = GlobalState.flatAPI.getFunctionAt(ref.getToAddress());
+                    if (calledFunction != null && "memcpy".equals(calledFunction.getName())) {
+                        memcpyCount++;
+                        
+                        Logging.info("Found memcpy call #" + memcpyCount + " at: " + currentAddr);
+                        
+                        // 限制分析的memcpy调用数量，避免过度分析
+                        if (memcpyCount > 3) {
+                            Logging.warn("Too many memcpy calls in function, stopping analysis for safety");
+                            break;
+                        }
+                        
+                        // 尝试解析这个memcpy调用的参数，增加验证
+                        if (resolveValidatedMemcpyCall(currentAddr, function, size)) {
+                            found = true;
+                        }
+                    }
+                }
+            }
+            
+            if (memcpyCount > 3) break;
+            
+            currentAddr = currentAddr.next();
+        }
+        
+        Logging.info("Validated memcpy resolution " + (found ? "succeeded" : "failed") + 
+                    ", analyzed " + memcpyCount + " memcpy calls");
+        return found;
+    }
+    
+    /**
+     * 解析验证的memcpy调用
+     */
+    private boolean resolveValidatedMemcpyCall(Address memcpyAddr, Function function, int expectedSize) {
+        try {
+            // 这里可以添加对memcpy参数的分析和验证
+            // 目前先返回false，表示需要更谨慎的实现
+            Logging.info("Memcpy call analysis at " + memcpyAddr + " - validation needed");
+            
+            // TODO: 实现更安全的memcpy参数分析
+            // 1. 分析memcpy的源地址和目标地址
+            // 2. 验证拷贝大小是否与预期的描述符数组大小匹配
+            // 3. 检查源数据是否看起来像NAPI描述符
+            
+            return false; // 暂时返回false，直到实现更安全的版本
+            
+        } catch (Exception e) {
+            Logging.warn("Exception analyzing memcpy call: " + e.getMessage());
+            return false;
+        }
     }
     
     /**
@@ -245,6 +467,37 @@ class PropertyRegistrationResolver {
                 }
             } catch (Exception e) {
                 Logging.error("Error resolving descriptor at index " + index + ": " + e.getMessage());
+            }
+        }
+        return resolvedCount;
+    }
+    
+    /**
+     * 解析栈上构造的descriptor数组
+     * @return 成功解析的属性数量
+     */
+    private int resolveLocalDescriptorArray(AbsVal arrayPtr, int size, AbsEnv absEnv) {
+        RegionBase region = arrayPtr.getRegion();
+        long baseOffset = arrayPtr.getValue();
+        int ptrSize = MyGlobalState.defaultPointerSize;
+        int structSize = ptrSize * 8; // napi_property_descriptor结构体大小
+        
+        Logging.info("Resolving local descriptor array, base offset: " + baseOffset + ", size: " + size);
+        
+        int resolvedCount = 0;
+        for (int i = 0; i < size; i++) {
+            long structOffset = baseOffset + i * structSize;
+            
+            // 解析每个descriptor结构体的字段
+            String utf8name = resolveLocalDescriptorField(region, structOffset + ptrSize * 0, absEnv);
+            Long methodPtr = resolveLocalDescriptorMethodPtr(region, structOffset + ptrSize * 2, absEnv);
+            
+            if (utf8name != null && methodPtr != null) {
+                Logging.info("Found local descriptor: " + utf8name + " at 0x" + Long.toHexString(methodPtr));
+                addPropertyRegistration(utf8name, methodPtr);
+                resolvedCount++;
+            } else {
+                Logging.warn("Failed to resolve local descriptor at offset: " + structOffset);
             }
         }
         return resolvedCount;

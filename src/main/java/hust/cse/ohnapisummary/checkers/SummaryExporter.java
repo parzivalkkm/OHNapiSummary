@@ -6,6 +6,7 @@ import com.bai.env.funcs.externalfuncs.ExternalFunctionBase;
 import com.bai.env.region.RegionBase;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
+import com.bai.util.StringUtils;
 import com.google.gson.Gson;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.data.DataType;
@@ -120,7 +121,8 @@ public class SummaryExporter extends CheckerBase {
         if (kSet.isTop()) {
             return ret;
         }
-        // TODO: 处理值流
+
+        //  处理值流
         for (AbsVal targetVal : kSet) {
             // 处理Heap region
             RegionBase region = targetVal.getRegion();
@@ -142,6 +144,18 @@ public class SummaryExporter extends CheckerBase {
                 }
 
                 continue;
+            }
+
+            // 尝试解析常量字符串
+            if (dataType != null) {
+                String dtName = dataType.getName();
+                if (dtName.contains("char")) {
+                    String str = StringUtils.getString(targetVal, env);
+                    if (str != null) {
+                        ret.add(Str.of(str));
+                        continue;
+                    }
+                }
             }
 
             // 如果没有具体的值，则返回Top
@@ -197,25 +211,27 @@ public class SummaryExporter extends CheckerBase {
                     break;
             }
 
-            switch (dtTc) {
-                case NAPI_CALLBACK_INFO:
-                case NAPI_ENV:
-                case NAPI_STATUS:
-                case NAPI_VALUE:
-                    Logging.error("不透明值应当已被处理");
-                    break;
-                case BUFFER:
-                    Logging.error(String.format("Cannot decode buffer(%s): 0x%s", dataType != null ? dataType.toString(): dtName, Long.toHexString(addr)));
-                    break;
-                case NUMBER:
-                    ret.add(Number.ofLong(addr));
-                    break;
-                default:
-                case UNKNOWN:
-                    if (!dtName.equals("undefined")) {
-                        Logging.error("Unknown datatype "+dtName);
-                    }
-                    break;
+            if (dtTc != null) {
+                switch (dtTc) {
+                    case NAPI_CALLBACK_INFO:
+                    case NAPI_ENV:
+                    case NAPI_STATUS:
+                    case NAPI_VALUE:
+                        Logging.error("不透明值应当已被处理");
+                        break;
+                    case BUFFER:
+                        Logging.error(String.format("Cannot decode buffer(%s): 0x%s", dataType != null ? dataType.toString(): dtName, Long.toHexString(addr)));
+                        break;
+                    case NUMBER:
+                        ret.add(Number.ofLong(addr));
+                        break;
+                    default:
+                    case UNKNOWN:
+                        if (!dtName.equals("undefined")) {
+                            Logging.error("Unknown datatype "+dtName);
+                        }
+                        break;
+                }
             }
 
 

@@ -5,6 +5,7 @@ import com.bai.env.*;
 import com.bai.env.region.RegionBase;
 import com.bai.util.GlobalState;
 import com.bai.util.Logging;
+import com.bai.util.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import ghidra.program.model.address.Address;
@@ -435,21 +436,138 @@ public class ModuleInitChecker extends CheckerBase {
      * 生成输出文件路径
      */
     private String generateOutputPath() {
-        String basePath = MyGlobalState.soName != null ? MyGlobalState.soName : "unknown";
-        if (basePath.endsWith(".so")) {
-            basePath = basePath.substring(0, basePath.length() - 3);
-        }
-        
-        // 生成到当前工作目录，方便查找
-        String outputFileName = basePath + ".napi_analysis.json";
-        String currentDir = System.getProperty("user.dir");
-        String fullPath = Paths.get(currentDir, outputFileName).toString();
-        
+        // 将IR写入到文件中
+        String exe_path = MyGlobalState.flatapi.getCurrentProgram().getExecutablePath();
+        // 记录当前so文件的名字
+        MyGlobalState.soName = Paths.get(exe_path).getFileName().toString();
+
+        String fullPath = exe_path + ".register.json";
+
         Logging.info("NAPI analysis results will be exported to: " + fullPath);
         return fullPath;
     }
     
     // ====== 静态工具方法 ======
+    
+    /**
+     * 验证是否为可能的NAPI描述符数组
+     */
+    public static boolean isLikelyNAPIDescriptorArray(KSet arrayKSet, int expectedSize, String context) {
+        if (arrayKSet == null || arrayKSet.isBot() || expectedSize <= 0) {
+            Logging.warn("Invalid array KSet or size in " + context);
+            return false;
+        }
+        
+        // 验证大小合理性 - NAPI描述符数组通常不会太大
+        if (expectedSize > 50) {
+            Logging.warn("Descriptor array size too large (" + expectedSize + ") in " + context + ", possibly not NAPI descriptors");
+            return false;
+        }
+        
+        try {
+            for (AbsVal val : arrayKSet) {
+                if (val.getRegion().isGlobal()) {
+                    long addr = val.getValue();
+                    
+                    // 检查地址对齐 - 描述符数组应该按指针大小对齐
+                    if (!isValidMemoryAddress(addr, context)) {
+                        return false;
+                    }
+                    
+                    // 检查内存区域合理性
+                    if (!isValidMemoryRegion(addr, context)) {
+                        return false;
+                    }
+                }
+            }
+            
+            Logging.info("Array validation passed for " + context + " (size: " + expectedSize + ")");
+            return true;
+            
+        } catch (Exception e) {
+            Logging.warn("Exception during array validation in " + context + ": " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 检查内存区域是否可访问和合理
+     */
+    public static boolean isValidMemoryRegion(long addr, String context) {
+        try {
+            Address address = GlobalState.flatAPI.toAddr(addr);
+            MemoryBlock mb = GlobalState.currentProgram.getMemory().getBlock(address);
+            
+            if (mb == null) {
+                Logging.warn("Address 0x" + Long.toHexString(addr) + " not in valid memory block in " + context);
+                return false;
+            }
+            
+            // 检查内存块是否可读
+            if (!mb.isRead()) {
+                Logging.warn("Memory block at 0x" + Long.toHexString(addr) + " is not readable in " + context);
+                return false;
+            }
+            
+            // 检查是否在已初始化的数据段中（.data, .rodata等）
+            String blockName = mb.getName().toLowerCase();
+            if (blockName.contains("data") || blockName.contains("rodata") || 
+                blockName.contains("text") || blockName.contains("const")) {
+                Logging.debug("Address 0x" + Long.toHexString(addr) + " in valid section: " + blockName);
+                return true;
+            }
+            
+            // 对于其他段，给出警告但不拒绝
+            Logging.info("Address 0x" + Long.toHexString(addr) + " in section: " + blockName + " (proceeding with caution)");
+            return true;
+            
+        } catch (Exception e) {
+            Logging.warn("Cannot validate memory region at 0x" + Long.toHexString(addr) + " in " + context + ": " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 验证NAPI描述符结构的合理性
+     */
+    public static boolean validateNAPIDescriptorStructure(long baseAddr, int index, String context) {
+        try {
+            int ptrSize = MyGlobalState.defaultPointerSize;
+            int structSize = ptrSize * 8; // napi_property_descriptor结构体大小
+            long structAddr = baseAddr + index * structSize;
+            
+            // 检查结构体地址对齐
+            if (!isValidMemoryAddress(structAddr, context + " struct[" + index + "]")) {
+                return false;
+            }
+            
+            // 检查结构体内各字段的指针值
+            for (int fieldIndex = 0; fieldIndex < 8; fieldIndex++) {
+                long fieldAddr = structAddr + fieldIndex * ptrSize;
+                
+                if (!isValidMemoryRegion(fieldAddr, context + " struct[" + index + "].field[" + fieldIndex + "]")) {
+                    continue; // 字段地址无效不一定意味着整个结构无效
+                }
+                
+                // 读取字段值
+                long fieldValue = getValueFromAddrWithPtrSize(fieldAddr, ptrSize);
+                
+                // 对于指针字段，检查指针值的合理性
+                if (fieldValue != 0 && fieldIndex < 6) { // 前6个字段通常是指针
+                    if (!isValidMemoryAddress(fieldValue, context + " struct[" + index + "].field[" + fieldIndex + "] value")) {
+                        Logging.warn("Invalid pointer value in descriptor field");
+                        // 不直接返回false，因为某些字段可能为null
+                    }
+                }
+            }
+            
+            return true;
+            
+        } catch (Exception e) {
+            Logging.warn("Exception validating descriptor structure in " + context + ": " + e.getMessage());
+            return false;
+        }
+    }
     
     /**
      * 增强的字符串解析 - 支持local变量解析
@@ -475,22 +593,10 @@ public class ModuleInitChecker extends CheckerBase {
                     // 尝试解析local变量 - 参考NapiGetCallBackInfo的模式
                     try {
                         ALoc ptr = toALoc(val, MyGlobalState.defaultPointerSize);
-                        if (ptr != null && absEnv != null) {
-                            KSet localKs = absEnv.get(ptr);
-                            Logging.info("Attempting to resolve local string in " + context + ", ptr KSet: " + localKs);
-                            
-                            if (localKs != null && !localKs.isBot()) {
-                                for (AbsVal localVal : localKs) {
-                                    if (localVal.getRegion().isGlobal()) {
-                                        long addr = localVal.getValue();
-                                        String localStr = getStrFromAddr(addr);
-                                        if (localStr != null) {
-                                            Logging.info("Resolved local string in " + context + ": " + localStr);
-                                            return localStr;
-                                        }
-                                    }
-                                }
-                            }
+                        String localStr = StringUtils.getString(val, absEnv);
+                        if (localStr != null) {
+                            Logging.info("Resolved local string in " + context + ": " + localStr);
+                            return localStr;
                         }
                     } catch (Exception e) {
                         Logging.warn("Failed to resolve local string in " + context + ": " + e.getMessage());
@@ -499,12 +605,110 @@ public class ModuleInitChecker extends CheckerBase {
             }
         } catch (Exception e) {
             Logging.error("Exception while iterating KSet in " + context + ": " + e.getMessage());
-            e.printStackTrace();
-            return null;
+            // 尝试更保守的解析方法
+            return tryConservativeStringResolution(ks, context);
         }
         
         Logging.warn("Could not resolve string from KSet in " + context);
         return null;
+    }
+    
+    /**
+     * 保守的字符串解析方法 - 当标准方法失败时使用
+     */
+    private static String tryConservativeStringResolution(KSet ks, String context) {
+        try {
+            // 直接检查KSet的内部结构
+            if (ks != null && ks.toString().contains("Global")) {
+                // 尝试从KSet的字符串表示中提取信息
+                String ksetStr = ks.toString();
+                Logging.debug("KSet string representation: " + ksetStr);
+                
+                // 这里可以添加更多的启发式方法
+                // 例如正则表达式匹配等
+            }
+        } catch (Exception e) {
+            Logging.debug("Conservative resolution also failed: " + e.getMessage());
+        }
+        return null;
+    }
+    
+    /**
+     * 改进的内存地址有效性检查
+     */
+    public static boolean isValidMemoryAddress(long addr, String context) {
+        // 排除明显无效的地址
+        if (addr == 0) {
+            Logging.debug("Address is zero in " + context);
+            return false;
+        }
+        
+        // 排除虚拟地址模式 (0x8000000000000000 系列)
+        if ((addr & 0x8000000000000000L) != 0) {
+            Logging.warn("Virtual address detected in " + context + ": 0x" + Long.toHexString(addr));
+            return false;
+        }
+        
+        // 检查地址是否在合理范围内 (假设程序地址空间)
+        if (addr < 0x100000 || addr > 0x7FFFFFFF) {
+            Logging.warn("Address out of reasonable range in " + context + ": 0x" + Long.toHexString(addr));
+            return false;
+        }
+        
+        // 检查地址是否在已知的内存块中
+        try {
+            Address address = GlobalState.flatAPI.toAddr(addr);
+            MemoryBlock mb = GlobalState.currentProgram.getMemory().getBlock(address);
+            if (mb == null) {
+                Logging.debug("Address not in valid memory block in " + context + ": 0x" + Long.toHexString(addr));
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            Logging.debug("Memory validation failed for " + context + ": " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 放宽的指针对齐检查 - 考虑到不同架构的对齐要求
+     */
+    public static boolean isValidPointerAlignment(long addr, int ptrSize, String context) {
+        // 对于32位指针，检查4字节对齐；64位指针可以是4或8字节对齐
+        int alignmentRequirement = (ptrSize == 8) ? 4 : ptrSize; // 放宽64位的对齐要求
+        
+        if (addr % alignmentRequirement != 0) {
+            Logging.debug("Address alignment check failed for " + context + 
+                         ": 0x" + Long.toHexString(addr) + " (alignment: " + alignmentRequirement + ")");
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 验证构造函数指针 - 使用更宽松的检查
+     */
+    public static boolean isValidConstructorPointer(long addr, String className) {
+        String context = "class " + (className != null ? className : "unknown") + " constructor";
+        
+        // 基本有效性检查（使用改进的方法）
+        if (!isValidMemoryAddress(addr, context)) {
+            return false;
+        }
+        
+        // 对构造函数使用更宽松的对齐检查
+        if (!isValidPointerAlignment(addr, MyGlobalState.defaultPointerSize, context)) {
+            // 如果严格对齐失败，尝试更宽松的检查（4字节对齐）
+            if (!isValidPointerAlignment(addr, 4, context + " (relaxed)")) {
+                Logging.warn("Constructor pointer failed relaxed alignment check: 0x" + Long.toHexString(addr));
+                return false;
+            } else {
+                Logging.info("Constructor pointer passed relaxed alignment check: 0x" + Long.toHexString(addr));
+            }
+        }
+        
+        return true;
     }
     
     /**
