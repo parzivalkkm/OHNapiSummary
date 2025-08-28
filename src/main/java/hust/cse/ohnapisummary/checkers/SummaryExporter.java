@@ -108,8 +108,10 @@ public class SummaryExporter extends CheckerBase {
      * @return 返回解析出的参数
      */
     private List<Value> decodeKSet(DataType dataType, KSet kSet, AbsEnv env, String ident) {
+        Logging.info("decodeKSet for "+ident+" kSet: "+ (kSet == null? "null": kSet.toString()));
         List<Value> ret = new ArrayList<>();
         if (kSet == null) {
+            Logging.error("kSet is null");
             return ret;
         }
         long taints = kSet.getTaints();
@@ -119,6 +121,7 @@ public class SummaryExporter extends CheckerBase {
             ret.add(decodeNapiValue(napiValue));
         }
         if (kSet.isTop()) {
+            Logging.info("kSet is Top");
             return ret;
         }
 
@@ -149,7 +152,9 @@ public class SummaryExporter extends CheckerBase {
             // 尝试解析常量字符串
             if (dataType != null) {
                 String dtName = dataType.getName();
+                Logging.info("Decoding data type: "+dtName);
                 if (dtName.contains("char")) {
+                    Logging.info("Try to decode str for "+ident+" "+targetVal.toString());
                     String str = StringUtils.getString(targetVal, env);
                     if (str != null) {
                         ret.add(Str.of(str));
@@ -172,13 +177,14 @@ public class SummaryExporter extends CheckerBase {
             if (NAPIValueManager.highestBitsMatch(id)) { // special value
                 NAPIValue v = MyGlobalState.napiManager.getValue(id);
                 if (v == null) {
-                    Logging.warn("Cannot find JNIValue?: "+Long.toHexString(id));
+                    Logging.warn("Cannot find NAPIValue?: "+Long.toHexString(id));
                 } else {
                     ret.add(decodeNapiValue(v));
                     continue;
                 }
             }
 
+            Logging.info("Decoding potential address"+ident+" "+targetVal.toString());
             // 这个值保存的还可能是一个地址，尝试对其进行解析
             long addr = id;
             String dtName;
@@ -286,6 +292,7 @@ public class SummaryExporter extends CheckerBase {
 
             // 解析参数
             List<Value> values = new ArrayList<>();
+            Logging.info("param alocs size: "+alocs.size());
             for (ALoc aloc: alocs) {
                 KSet kSet = env.get(aloc);
                 values.addAll(decodeKSet(param.getDataType(), kSet, env,

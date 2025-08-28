@@ -66,15 +66,17 @@ class PropertyRegistrationResolver {
             return true;
         }
         
-        // Layer 3: 有限制的memcpy解析 (最保守) - 增加更严格的条件
-        if (size > 5 && isHighConfidenceNAPIContext(caller)) {
+        // Layer 3: 有限制的memcpy解析 (最保守) - 放宽条件以提高覆盖率
+        if (size >= 1) {
+            System.out.println("Attempting constrained memcpy resolution: size=" + size + 
+                              ", function=" + (caller != null ? caller.getName() : "unknown") +
+                              ", confidence=" + (isHighConfidenceNAPIContext(caller) ? "high" : "low"));
             if (resolveFromConstrainedMemcpy(caller, size, descriptorArrayKSet)) {
                 Logging.info("Successfully resolved using constrained memcpy (Layer 3)");
                 return true;
             }
-        } else if (size > 3) {
-            Logging.info("Skipping memcpy resolution: size=" + size + ", confidence=" + 
-                        (isHighConfidenceNAPIContext(caller) ? "high" : "low"));
+        } else {
+            Logging.info("Skipping memcpy resolution: size too small (" + size + ")");
         }
         
         return false;
@@ -171,10 +173,54 @@ class PropertyRegistrationResolver {
             return true;
         }
         
-        // 可以添加更多启发式规则
-        // 例如：检查函数是否包含多个NAPI调用
+        // 增强的启发式规则
+        try {
+            // 规则1：检查函数是否包含多个NAPI调用
+            if (containsMultipleNAPICallsHeuristic(function)) {
+                return true;
+            }
+            
+            // 规则2：检查函数调用者是否具有NAPI特征
+            if (hasNAPICallerHeuristic(function)) {
+                return true;
+            }
+            
+            // 规则3：检查函数所在的代码段是否包含其他NAPI函数
+            if (isInNAPICodeSection(function)) {
+                return true;
+            }
+            
+        } catch (Exception e) {
+            // 启发式检查失败时不影响主流程
+            System.out.println("Warning: Heuristic check failed for " + funcName + ": " + e.getMessage());
+        }
         
         return false;
+    }
+    
+    /**
+     * 启发式规则1：检查函数是否包含多个NAPI调用
+     */
+    private boolean containsMultipleNAPICallsHeuristic(Function function) {
+        // 简单实现：检查函数体中是否有多个napi_相关的调用
+        // 这里可以根据需要实现更复杂的逻辑
+        return false; // 暂时返回false，可以后续完善
+    }
+    
+    /**
+     * 启发式规则2：检查函数调用者是否具有NAPI特征
+     */
+    private boolean hasNAPICallerHeuristic(Function function) {
+        // 检查调用该函数的其他函数是否具有NAPI特征
+        return false; // 暂时返回false，可以后续完善
+    }
+    
+    /**
+     * 启发式规则3：检查函数是否在NAPI代码段中
+     */
+    private boolean isInNAPICodeSection(Function function) {
+        // 检查函数附近是否有其他NAPI相关函数
+        return false; // 暂时返回false，可以后续完善
     }
     
     /**
@@ -183,25 +229,11 @@ class PropertyRegistrationResolver {
     private boolean resolveFromConstrainedMemcpy(Function function, int size, KSet sourceKSet) {
         Logging.info("Attempting constrained memcpy resolution for function: " + function.getName());
         
-        // 首先验证源数据的合理性
-        boolean hasValidSource = false;
-        for (AbsVal val : sourceKSet) {
-            if (val.getRegion().isGlobal()) {
-                long addr = val.getValue();
-                if (ModuleInitChecker.isValidMemoryAddress(addr, "memcpy source") &&
-                    ModuleInitChecker.isValidMemoryRegion(addr, "memcpy source")) {
-                    hasValidSource = true;
-                    break;
-                }
-            }
-        }
+        // 不再验证sourceKSet，而是直接查找函数中的memcpy调用
+        // 因为sourceKSet可能是local的，无法直接验证
+        System.out.println("Searching for memcpy calls in function: " + function.getName());
         
-        if (!hasValidSource) {
-            Logging.warn("No valid source found for memcpy resolution");
-            return false;
-        }
-        
-        // 只查找与NAPI相关的memcpy调用
+        // 查找函数中的memcpy调用并解析
         return resolveFromValidatedMemcpy(function, size);
     }
     
@@ -364,72 +396,70 @@ class PropertyRegistrationResolver {
     }
     
     /**
-     * 验证的memcpy解析 - 替代原来的resolveFromMemcpy
+     * 验证的memcpy解析 - 基于静态分析日志中的memcpy信息
      */
     private boolean resolveFromValidatedMemcpy(Function function, int size) {
         Logging.info("Trying validated memcpy resolution within function: " + function.getName());
         
-        // 只在当前函数内查找memcpy调用
-        boolean found = false;
-        Address functionStart = function.getEntryPoint();
-        Address functionEnd = function.getBody().getMaxAddress();
+        // 从日志我们知道有memcpy: <FUN_00108ea8@Local, 14d08h> <- <GLOBAL, 111b40h> size: 704
+        // 这意味着有全局数据被复制到本地数组
+        // 我们应该尝试解析全局源地址的数据
         
-        int memcpyCount = 0;
-        Address currentAddr = functionStart;
+        // 尝试查找可能的全局descriptor数组地址
+        // 基于memcpy大小704字节和11个descriptor，每个64字节(8*8)，符合预期
+        long expectedStructSize = 64; // 8个指针 * 8字节
+        long expectedTotalSize = size * expectedStructSize;
         
-        while (currentAddr != null && currentAddr.compareTo(functionEnd) <= 0) {
-            Reference[] referencesFrom = GlobalState.currentProgram.getReferenceManager().getReferencesFrom(currentAddr);
-            
-            for (Reference ref : referencesFrom) {
-                if (ref.getReferenceType().isCall()) {
-                    Function calledFunction = GlobalState.flatAPI.getFunctionAt(ref.getToAddress());
-                    if (calledFunction != null && "memcpy".equals(calledFunction.getName())) {
-                        memcpyCount++;
-                        
-                        Logging.info("Found memcpy call #" + memcpyCount + " at: " + currentAddr);
-                        
-                        // 限制分析的memcpy调用数量，避免过度分析
-                        if (memcpyCount > 3) {
-                            Logging.warn("Too many memcpy calls in function, stopping analysis for safety");
-                            break;
-                        }
-                        
-                        // 尝试解析这个memcpy调用的参数，增加验证
-                        if (resolveValidatedMemcpyCall(currentAddr, function, size)) {
-                            found = true;
-                        }
-                    }
-                }
-            }
-            
-            if (memcpyCount > 3) break;
-            
-            currentAddr = currentAddr.next();
-        }
+        System.out.println("Expected memcpy size for " + size + " descriptors: " + expectedTotalSize + " bytes");
         
-        Logging.info("Validated memcpy resolution " + (found ? "succeeded" : "failed") + 
-                    ", analyzed " + memcpyCount + " memcpy calls");
-        return found;
+        // 尝试查找函数中可能的全局数据引用
+        return tryResolveFromGlobalMemcpySource(function, size);
     }
     
     /**
-     * 解析验证的memcpy调用
+     * 尝试从全局memcpy源解析descriptor
      */
-    private boolean resolveValidatedMemcpyCall(Address memcpyAddr, Function function, int expectedSize) {
+    private boolean tryResolveFromGlobalMemcpySource(Function function, int size) {
         try {
-            // 这里可以添加对memcpy参数的分析和验证
-            // 目前先返回false，表示需要更谨慎的实现
-            Logging.info("Memcpy call analysis at " + memcpyAddr + " - validation needed");
+            // 扫描函数中的所有全局地址引用
+            Address functionStart = function.getEntryPoint();
+            Address functionEnd = function.getBody().getMaxAddress();
             
-            // TODO: 实现更安全的memcpy参数分析
-            // 1. 分析memcpy的源地址和目标地址
-            // 2. 验证拷贝大小是否与预期的描述符数组大小匹配
-            // 3. 检查源数据是否看起来像NAPI描述符
+            System.out.println("Scanning function " + function.getName() + " for global references...");
             
-            return false; // 暂时返回false，直到实现更安全的版本
+            Address currentAddr = functionStart;
+            while (currentAddr != null && currentAddr.compareTo(functionEnd) <= 0) {
+                // 检查这个地址是否引用了全局数据
+                Reference[] referencesFrom = GlobalState.currentProgram.getReferenceManager().getReferencesFrom(currentAddr);
+                
+                for (Reference ref : referencesFrom) {
+                    if (ref.getReferenceType().isData()) {
+                        Address globalAddr = ref.getToAddress();
+                        long addr = globalAddr.getOffset();
+                        
+                        // 检查这个全局地址是否可能是descriptor数组
+                        if (ModuleInitChecker.isValidMemoryAddress(addr, "potential global descriptor array")) {
+                            System.out.println("Found potential global descriptor array at: 0x" + Long.toHexString(addr));
+                            
+                            // 尝试解析这个地址的数据
+                            int resolved = resolveDescriptorsAt(addr, size);
+                            if (resolved > 0) {
+                                System.out.println("Successfully resolved " + resolved + " descriptors from global address");
+                                return true;
+                            }
+                        }
+                    }
+                }
+                
+                currentAddr = currentAddr.next();
+                if (currentAddr == null) break;
+            }
+            
+            System.out.println("No valid global descriptor arrays found in function");
+            return false;
             
         } catch (Exception e) {
-            Logging.warn("Exception analyzing memcpy call: " + e.getMessage());
+            System.out.println("Error in tryResolveFromGlobalMemcpySource: " + e.getMessage());
             return false;
         }
     }
