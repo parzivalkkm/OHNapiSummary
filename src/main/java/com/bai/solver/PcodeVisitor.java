@@ -524,18 +524,18 @@ public class PcodeVisitor {
             return;
         }
         // CWE476: Null Pointer Dereference
-        MemoryCorruption.checkNullPointerDereference(srcPtrKSet, address, context, null, MemoryCorruption.TYPE_READ, 0);
+//        MemoryCorruption.checkNullPointerDereference(srcPtrKSet, address, context, null, MemoryCorruption.TYPE_READ, 0);
         for (AbsVal ptr : srcPtrKSet) {
             if (ptr.isBigVal()) {
                 continue;
             }
             if (ptr.getRegion().isHeap()) {
                 // CWE416: Use After Free
-                MemoryCorruption.checkUseAfterFree(ptr, address, context, null, MemoryCorruption.TYPE_READ);
+//                MemoryCorruption.checkUseAfterFree(ptr, address, context, null, MemoryCorruption.TYPE_READ);
             }
             if (ptr.getRegion().isHeap() || ptr.getRegion().isLocal()) {
                 // CWE125: Out-of-bounds Read
-                MemoryCorruption.checkOutOfBound(ptr, address, context, null, MemoryCorruption.TYPE_READ);
+//                MemoryCorruption.checkOutOfBound(ptr, address, context, null, MemoryCorruption.TYPE_READ);
             }
             List<AbsVal> adjustedPtrs = Utils.adjustLocalAbsVal(ptr, context, srcPtrKSet.getBits());
             if (adjustedPtrs.isEmpty()) {
@@ -568,8 +568,8 @@ public class PcodeVisitor {
 
         Address address = Utils.getAddress(pcode);
         // CWE476: Null Pointer Dereference
-        MemoryCorruption.checkNullPointerDereference(dstPtrKSet, address, context, null, MemoryCorruption.TYPE_WRITE,
-                0);
+//        MemoryCorruption.checkNullPointerDereference(dstPtrKSet, address, context, null, MemoryCorruption.TYPE_WRITE,
+//                0);
 
         for (AbsVal ptr : dstPtrKSet) {
             if (ptr.isBigVal()) {
@@ -577,11 +577,11 @@ public class PcodeVisitor {
             }
             if (ptr.getRegion().isHeap()) {
                 // CWE416: Use After Free
-                MemoryCorruption.checkUseAfterFree(ptr, address, context, null, MemoryCorruption.TYPE_WRITE);
+//                MemoryCorruption.checkUseAfterFree(ptr, address, context, null, MemoryCorruption.TYPE_WRITE);
             }
             if (ptr.getRegion().isHeap() || ptr.getRegion().isLocal()) {
                 // CWE787: Out-of-bounds Write check
-                MemoryCorruption.checkOutOfBound(ptr, address, context, null, MemoryCorruption.TYPE_WRITE);
+//                MemoryCorruption.checkOutOfBound(ptr, address, context, null, MemoryCorruption.TYPE_WRITE);
             }
             // Adjust local AbsVal after check.
             List<AbsVal> adjustedPtrs = Utils.adjustLocalAbsVal(ptr, context, dstPtrKSet.getBits());
@@ -681,7 +681,7 @@ public class PcodeVisitor {
             callee = callee.getThunkedFunction(true);
         }        if (callee.isExternal() || FunctionModelManager.isFunctionAddressMapped(targetAddress)) {
             defineExternalFunctionSignature(pcode, inOutEnv, tmpEnv, callee);
-            MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
+//            MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
             NAPIFunctionBase.currentCallSite = callSite;
             Status status = invokeExternal(pcode, inOutEnv, tmpEnv, callee);
             if (status.noReturn) {
@@ -693,7 +693,7 @@ public class PcodeVisitor {
         if (FunctionModelManager.isStd(callee)) { // TODO: support mapping address to std model
             Logging.debug("Calling C++ STL: " + callee.getName(true));
             defineStdFunctionSignature(pcode, inOutEnv, tmpEnv, callee);
-            MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
+//            MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
             Status status = invokeStd(pcode, inOutEnv, tmpEnv, callee);
             if (status.noReturn) {
                 jumpOut = true;
@@ -806,7 +806,7 @@ public class PcodeVisitor {
             if (callee.isExternal() || FunctionModelManager.isFunctionAddressMapped(targetAddress)) {
                 defineExternalFunctionSignature(pcode, inOutEnv, tmpEnv, callee);
                 // CWE119, CWE416, CWE416, CWE476
-                MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
+//                MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
                 NAPIFunctionBase.currentCallSite = callSite;
                 status = invokeExternal(pcode, inOutEnv, tmpEnv, callee);
                 if (status == null) {
@@ -818,7 +818,7 @@ public class PcodeVisitor {
             } else if (FunctionModelManager.isStd(callee)) { // TODO: support mapping address to std model
                 defineStdFunctionSignature(pcode, inOutEnv, tmpEnv, callee);
                 // CWE119, CWE416, CWE416, CWE476
-                MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
+//                MemoryCorruption.checkExternalCallParameters(pcode, inOutEnv, tmpEnv, context, callee);
                 status = invokeStd(pcode, inOutEnv, tmpEnv, callee);
                 if (status == null) {
                     continue;

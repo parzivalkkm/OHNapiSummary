@@ -86,6 +86,8 @@ public class OHNapiSummary extends BinAbsInspector {
 
         ArrayList<Map.Entry<Function, hust.cse.ohnapisummary.ir.Function>> functionsToAnalyze = getFunctionsToAnalyze();
 
+        Logging.info("Found " + functionsToAnalyze.size() + " functions to analyze.");
+
         for(int i=0;i<functionsToAnalyze.size();i++) {
             Map.Entry<Function, hust.cse.ohnapisummary.ir.Function> e = functionsToAnalyze.get(i);
             println("Analyzing " + e.getKey().getName());

@@ -120,7 +120,7 @@ public class Config {
 
     private static final int DEFAULT_K = 15;
 
-    private static final int DEFAULT_TIMEOUT = 300; // unit in second, no timeout by default
+    private static final int DEFAULT_TIMEOUT = 600; // unit in second, no timeout by default
 
     private int z3TimeOut;
 

@@ -14,9 +14,12 @@ public enum TypeCategory {
     NAPI_ENV,
     NAPI_CALLBACK_INFO,
     NAPI_VALUE,
+    NAPI_REF,
     UNKNOWN,
     NUMBER,
     BUFFER,
+    POINTER,
+    BOOLEAN,
 
     ;
 
@@ -55,6 +58,8 @@ public enum TypeCategory {
                 return NAPI_STATUS;
             case "napi_value":
                 return NAPI_VALUE;
+            case "napi_ref":
+                return NAPI_REF;
             case "napi_callback_info":
                 return NAPI_CALLBACK_INFO;
             case "napi_env":
@@ -62,6 +67,9 @@ public enum TypeCategory {
             case "LogType":
             case "LogLevel":
                 return NUMBER;
+            case "bool":
+            case "boolean":
+                return BOOLEAN;
             default:
                 return null;
         }
@@ -95,7 +103,10 @@ public enum TypeCategory {
             case "char*":
                 return BUFFER;
             case "void*":
-                return UNKNOWN;
+                return POINTER;
+            case "bool":
+            case "boolean":
+                return BOOLEAN;
             default:
                 return null;
         }
