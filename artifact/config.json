@@ -1,0 +1,11 @@
+{
+  "ghidra_headless": "D:\\WorkSpace\\ArkTS_Native\\ghidra_10.1.2_PUBLIC\\support\\analyzeHeadless.bat",
+  "apps_root_dir": "D:\\WorkSpace\\ArkTS_Native\\Illustration\\TaintAnalysisApp\\CollectedNativeLibs",
+  "project_name": "binary_batch_analysis",
+  "script_name": "OHNapiSummary",
+  "script_path": "D:\\WorkSpace\\ArkTS_Native\\scripts",
+  "log_dir": "./analysis_logs",
+  "max_memory": "8G",
+  "timeout": 900,
+  "enable_retry": false
+}
