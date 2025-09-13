@@ -54,19 +54,19 @@ class PropertyRegistrationResolver {
      * 分层解析策略 - 从最安全到最保守
      */
     private boolean tryLayeredResolution(KSet descriptorArrayKSet, int size, AbsEnv absEnv, Function caller) {
-        // Layer 1: 直接全局数组解析 (最安全)
+        // Layer 1: 直接全局数组解析
         if (resolveFromGlobalDescriptorArray(descriptorArrayKSet, size)) {
             Logging.info("Successfully resolved using global descriptor array (Layer 1)");
             return true;
         }
         
-        // Layer 2: 本地栈数组解析 (中等安全)
+        // Layer 2: 本地栈数组解析 
         if (resolveFromLocalDescriptorArray(descriptorArrayKSet, size, absEnv)) {
             Logging.info("Successfully resolved using local descriptor array (Layer 2)");
             return true;
         }
         
-        // Layer 3: 有限制的memcpy解析 (最保守) - 放宽条件以提高覆盖率
+        // Layer 3: 有限制的memcpy解析
         if (size >= 1) {
             System.out.println("Attempting constrained memcpy resolution: size=" + size + 
                               ", function=" + (caller != null ? caller.getName() : "unknown") +
